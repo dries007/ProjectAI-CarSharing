@@ -1,27 +1,51 @@
+from typing import Iterable
 from typing import List
 from typing import Dict
+
+import math
 
 from .Request import Request
 from .Zone import Zone
 
 
 class Solution:
-    def __init__(self, requests: List[Request], zone: List[Zone], cars: List[str]):
+    def __init__(self, requests: Iterable[Request], zone: Iterable[Zone], cars: Iterable[str]):
         self.requests: Dict[str, Request] = {r.id: r for r in requests}
         self.zone: Dict[str, Zone] = {z.id: z for z in zone}
-        self.cars: List[str] = cars
+        self.cars: Iterable[str] = cars
 
+        # Start with everything unassigned.
         self.car_zone: Dict[str, Zone] = {}
         self.req_car: Dict[Request, str] = {}
-        self.unassigned: List[Request] = requests[:]
-        self.assigned_to_neighbour: List[Request] = []
+        self.unassigned: List[Request] = [*requests]
 
-    def cost(self) -> int:
-        return sum(r.penalty1 for r in self.unassigned) + sum(r.penalty2 for r in self.assigned_to_neighbour)
+    def feasible(self) -> (bool, int):
+        # Cost is inf if the solutions is not feasible.
+        cost = 0
+        # TODO: Add check for overlap
+        # Request matched to car in it's own or neighbouring zone.
+        for req, car in self.req_car.items():
+            zone = self.car_zone[car]
+            if zone is None:  # Hard error.
+                raise RuntimeError('Request {} assigned to Car {} that is not in a zone.'.format(req, req))
+            if req.zone == zone.id:
+                pass
+            elif req.zone not in zone.neighbours:
+                cost += req.penalty2
+            else:
+                print('Not feasible, request {} not in zone or neighbours ({}).'.format(req, zone))
+                return False, math.inf
+        # Cost for unassigned requests
+        cost += sum(r.penalty1 for r in self.unassigned)
+        return True, cost
 
     def save(self, filename: str) -> None:
+        feasible, cost = self.feasible()
+        if not feasible:
+            print('Not feasible, still saving...')
+
         with open(filename, 'w') as f:
-            print(self.cost(), file=f)
+            print(cost, file=f)
             print('+Vehicle assignments', file=f)
             for car, zone in self.car_zone.items():
                 print(car, zone.id, sep=';', file=f)
@@ -31,3 +55,13 @@ class Solution:
             print('+Unassigned requests', file=f)
             for req in self.unassigned:
                 print(req.id,  file=f)
+
+    def validate(self, input_filename: str, output_filename: str):
+        if not self.feasible():
+            print('Not feasible, still validating...')
+
+        import os
+        os.system('java -jar validator.jar "{}" "{}"'.format(input_filename, output_filename))
+
+    def __repr__(self):
+        return 'Solution<feasible: {}, cost: {}>'.format(*self.feasible())

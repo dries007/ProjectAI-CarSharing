@@ -5,4 +5,4 @@ class Zone:
         self.neighbours = neighbours.split(",")
 
     def __repr__(self):
-        return "id: {}, neighbours: {}".format(self.id, self.neighbours)
+        return 'Zone<id: {}, neighbours: {}>'.format(self.id, self.neighbours)
