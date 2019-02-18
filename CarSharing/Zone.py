@@ -1,5 +1,8 @@
 
 class Zone:
-    def __init__(self, id: str, neighbours: [str]):
+    def __init__(self, id: str, neighbours: str):
         self.id = id
-        self.neighbours = neighbours
+        self.neighbours = neighbours.split(",")
+
+    def __repr__(self):
+        return "id: {}, neighbours: {}".format(self.id, self.neighbours)
