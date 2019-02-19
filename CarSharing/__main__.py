@@ -1,5 +1,6 @@
 import argparse
 import signal
+from .input_parser import *
 
 
 parser = argparse.ArgumentParser()
@@ -18,4 +19,13 @@ if args.runtime:
     signal.signal(signal.SIGALRM, timeout_handler)
     signal.alarm(args.runtime)
 
-# todo: Run main here.
+
+if __name__ == "__main__":
+    requests, zones, vehicles, days = parse_input('toy1.csv')
+
+    calculate_overlap(requests)
+
+    print(requests)
+    print(zones)
+    print(vehicles)
+    print(days)
