@@ -11,4 +11,10 @@ class Request:
         self.penalty2 = int(penalty2)
 
     def __repr__(self):
-        return "id: {}, zone: {}, day: {}, start: {}, duration: {}, vehicles: {}, pen1: {}, pen2: {}".format(self.id, self.zone, self.day, self.day, self.duration, self.vehicles, self.penalty1, self.penalty2)
+        return "id: {}, zone: {}, day: {}, start: {}, duration: {}, vehicles: {}, pen1: {}, pen2: {}".format(self.id, self.zone, self.day, self.start, self.duration, self.vehicles, self.penalty1, self.penalty2)
+
+    def real_start(self):
+        return (self.day * 24 * 60) + self.start
+
+    def real_end(self):
+        return self.real_start() + self.duration

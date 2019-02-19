@@ -1,14 +1,17 @@
 from .Request import Request
 from .Zone import Zone
 
+import numpy as np
+import itertools
 
-def parse_input():
+
+def parse_input(file):
     requests = []
     zones = []
     vehicles = []
     days = 0
 
-    with open('toy1.csv', newline='') as csvfile:
+    with open(file, newline='') as csvfile:
         line = csvfile.readline()
         while line != "":
             if "+Requests:" in line:
@@ -39,4 +42,14 @@ def parse_input():
     return requests, zones, vehicles, days
 
 
+def calculate_overlap(requests: [Request]):
+    overlaps = np.zeros((len(requests), len(requests)), dtype=bool)
 
+    request1: Request
+    request2: Request
+    for (i, request1), (j, request2) in itertools.combinations(enumerate(requests), 2):
+        if request1.real_end() > request2.real_start() or request2.real_end() < request1.real_start():
+            overlaps[i][j] = True
+            overlaps[j][i] = True
+
+    return overlaps
