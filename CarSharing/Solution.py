@@ -25,12 +25,13 @@ class Solution:
         # List of relative cost of a reservation based on overlap. If high, the cost of not assigning this request would be high.
         self.opportunity_cost: np.ndarray = np.sum(calculate_opportunity_cost(requests), axis=1)
 
-        pprint(self.requests)
-        pprint(self.zone)
-        pprint(self.cars)
-        pprint(self.days)
-        pprint(self.overlap)
-        pprint(self.opportunity_cost)
+        # print('Input')
+        # pprint(self.requests)
+        # pprint(self.zone)
+        # pprint(self.cars)
+        # pprint(self.days)
+        # pprint(self.overlap)
+        # pprint(self.opportunity_cost)
 
         # Start with everything unassigned.
         self.car_zone: Dict[str, Zone] = {}
@@ -38,6 +39,15 @@ class Solution:
         self.unassigned: List[Request] = [*requests]
 
         self.create_initial_solution()
+
+        print('Initial solution')
+        print('car <> zone:')
+        pprint(self.car_zone)
+        print('request <> car:')
+        pprint(self.req_car)
+        print('unassigned:')
+        pprint(self.unassigned)
+        print('Feasible, Cost:', self.feasible())
 
     def feasible(self) -> (bool, int):
         # Cost is inf if the solutions is not feasible.
@@ -122,6 +132,8 @@ class Solution:
                 self.unassigned.remove(request)
 
         # Add all unasigned cars to a zone
+        print('unassigned cars')
+        pprint(set(self.cars) - set(self.car_zone.keys()))
         for car in set(self.cars) - set(self.car_zone.keys()):
             self.car_zone[car] = next(iter(self.zone.values()))
 
