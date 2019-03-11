@@ -39,16 +39,22 @@ def parse_input(file):
 
             line = csvfile.readline()
 
+    for request in requests:
+        request.link_zones(zones)
+
     return requests, zones, vehicles, days
 
 
 def calculate_overlap(requests: [Request]) -> np.ndarray:
     overlaps = np.zeros((len(requests), len(requests)), dtype=bool)
 
-    request1: Request
-    request2: Request
     for (i, request1), (j, request2) in itertools.combinations(enumerate(requests), 2):
-        if request1.real_end() > request2.real_start() or request2.real_end() < request1.real_start():
+        if request1.real_start > request2.real_start:
+            tmp = request1
+            request1 = request2
+            request2 = tmp
+
+        if request1.real_end > request2.real_start or request2.real_end < request1.real_start:
             overlaps[i][j] = True
             overlaps[j][i] = True
 

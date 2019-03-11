@@ -1,0 +1,20 @@
+600
++Vehicle assignments
+car2;z0
+car3;z4
+car4;z2
+car0;z4
+car5;z0
+car1;z0
++Assigned requests
+req0;car2
+req2;car3
+req4;car4
+req7;car0
+req9;car3
++Unassigned requests
+req1
+req3
+req5
+req6
+req8

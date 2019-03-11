@@ -1,5 +1,6 @@
 import argparse
 import signal
+
 from .input_parser import parse_input
 from .Solution import Solution
 
@@ -23,5 +24,8 @@ if args.runtime:
 
 if __name__ == "__main__":
     solution = Solution(*parse_input('toy1.csv'))
+    solution.create_initial_solution()
 
-    print(solution)
+    solution.save("test.csv")
+    solution.validate("toy1.csv", "test.csv")
+

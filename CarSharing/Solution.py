@@ -44,7 +44,7 @@ class Solution:
                 if not overlap:
                     continue
                 # If there is overlap, error.
-                if car == self.req_car[self.request_list[i]]:
+                if (self.request_list[i] in self.req_car) and (car == self.req_car[self.request_list[i]]):
                     return False, math.inf
         # Request matched to car in it's own or neighbouring zone.
         for req, car in self.req_car.items():
@@ -84,6 +84,47 @@ class Solution:
             print('Not feasible, still validating...')
 
         os.system('java -jar validator.jar "{}" "{}"'.format(input_filename, output_filename))
+
+    def create_initial_solution(self):
+        """ Create initial feasible solution """
+        for request in self.unassigned:
+            selected_car = False
+            selected_zone = False
+
+            # Check for unassigned cars
+            for car in request.vehicles:
+                if car not in self.car_zone:
+                    selected_car = car
+                    selected_zone = request.zone
+                    break
+
+            # All cars are in a zone, search for a zone
+            if not selected_car:
+                for car in request.vehicles:
+                    zone = self.car_zone[car]
+                    if request.zone.check(zone.id) and not self.check_overlap(car, request):
+                        selected_car = car
+                        selected_zone = zone
+                        break
+
+            # If we found a car and a zone, save it
+            if selected_car and selected_zone:
+                self.car_zone[selected_car] = selected_zone
+                self.req_car[request] = selected_car
+                self.unassigned.remove(request)
+
+        # Add all unasigned cars to a zone
+        for car in set(self.cars) - set(self.car_zone.keys()):
+            self.car_zone[car] = next(iter(self.zone.values()))
+
+    def check_overlap(self, vehicle: str, request: Request):
+        """ Check if a request overlaps with other requests for a given car """
+        for req, car in self.req_car.items():
+            if car == vehicle:
+                if self.overlap[request.index, req.index]:
+                    return True
+
+        return False
 
     def __repr__(self):
         return 'Solution<feasible: {}, cost: {}>'.format(*self.feasible())
