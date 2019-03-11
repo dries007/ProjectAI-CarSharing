@@ -19,7 +19,7 @@ def parse_input(file):
 
                 for x in range(amount):
                     data = csvfile.readline().split(";")
-                    requests.append(Request(*data))
+                    requests.append(Request(*data, len(requests)))
 
             if "+Zones:" in line:
                 amount = int(line.split(" ")[1])
@@ -39,10 +39,10 @@ def parse_input(file):
 
             line = csvfile.readline()
 
-    return requests, zones, vehicles, days
+    return requests, zones, vehicles, days, calculate_overlap(requests)
 
 
-def calculate_overlap(requests: [Request]):
+def calculate_overlap(requests: [Request]) -> np.ndarray:
     overlaps = np.zeros((len(requests), len(requests)), dtype=bool)
 
     request1: Request

@@ -1,6 +1,7 @@
 import argparse
 import signal
-from .input_parser import *
+from .input_parser import parse_input
+from .Solution import Solution
 
 
 parser = argparse.ArgumentParser()
@@ -21,11 +22,6 @@ if args.runtime:
 
 
 if __name__ == "__main__":
-    requests, zones, vehicles, days = parse_input('toy1.csv')
+    solution = Solution(*parse_input('toy1.csv'))
 
-    calculate_overlap(requests)
-
-    print(requests)
-    print(zones)
-    print(vehicles)
-    print(days)
+    print(solution)

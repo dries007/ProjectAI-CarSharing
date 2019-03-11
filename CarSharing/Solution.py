@@ -2,17 +2,23 @@ from typing import Iterable
 from typing import List
 from typing import Dict
 
+import os
 import math
+
+import numpy as np
 
 from .Request import Request
 from .Zone import Zone
 
 
 class Solution:
-    def __init__(self, requests: Iterable[Request], zone: Iterable[Zone], cars: Iterable[str]):
+    def __init__(self, requests: List[Request], zone: List[Zone], cars: List[str], days: int, overlap: np.ndarray):
+        self.request_list: List[Request] = requests
         self.requests: Dict[str, Request] = {r.id: r for r in requests}
         self.zone: Dict[str, Zone] = {z.id: z for z in zone}
         self.cars: Iterable[str] = cars
+        self.days: int = days
+        self.overlap: np.ndarray = overlap
 
         # Start with everything unassigned.
         self.car_zone: Dict[str, Zone] = {}
@@ -22,7 +28,15 @@ class Solution:
     def feasible(self) -> (bool, int):
         # Cost is inf if the solutions is not feasible.
         cost = 0
-        # TODO: Add check for overlap
+        # Check for overlap. Loop over every assignment and check if any of the overlapping requests are assigned to the same cars.
+        for req, car in self.req_car.items():
+            for i, overlap in enumerate(self.overlap[req.overlap_index]):
+                # Don't need to bother if there is no overlap
+                if not overlap:
+                    continue
+                # If there is overlap, error.
+                if car == self.req_car[self.request_list[i]]:
+                    return False, math.inf
         # Request matched to car in it's own or neighbouring zone.
         for req, car in self.req_car.items():
             zone = self.car_zone[car]
@@ -51,7 +65,7 @@ class Solution:
                 print(car, zone.id, sep=';', file=f)
             print('+Assigned requests', file=f)
             for req, car in self.req_car.items():
-                print(req, car, sep=';', file=f)
+                print(req.id, car, sep=';', file=f)
             print('+Unassigned requests', file=f)
             for req in self.unassigned:
                 print(req.id,  file=f)
@@ -60,7 +74,6 @@ class Solution:
         if not self.feasible():
             print('Not feasible, still validating...')
 
-        import os
         os.system('java -jar validator.jar "{}" "{}"'.format(input_filename, output_filename))
 
     def __repr__(self):

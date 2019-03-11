@@ -1,14 +1,17 @@
+from typing import List
+
 
 class Request:
-    def __init__(self, id: str, zone: str, day, start, duration, vehicles: str, penalty1, penalty2):
-        self.id = id
-        self.zone = zone
-        self.day = int(day)
-        self.start = int(start)
-        self.duration = int(duration)
-        self.vehicles = vehicles.split(",")
-        self.penalty1 = int(penalty1)
-        self.penalty2 = int(penalty2)
+    def __init__(self, id, zone, day, start, duration, vehicles, penalty1, penalty2, overlap_index):
+        self.id: str = id
+        self.zone: str = zone
+        self.day: int = int(day)
+        self.start: int = int(start)
+        self.duration: int = int(duration)
+        self.vehicles: List[str] = vehicles.split(",")
+        self.penalty1: int = int(penalty1)  # Not assigned
+        self.penalty2: int = int(penalty2)  # Assigned to neighbour
+        self.overlap_index = overlap_index  # index in the overlap matrix
 
     def __repr__(self):
         return 'Request<id: {}, zone: {}, day: {}, start: {}, duration: {}, vehicles: {}, pen1: {}, pen2: {}>' \
