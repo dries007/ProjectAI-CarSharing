@@ -3,6 +3,7 @@ from typing import List
 from typing import Dict
 
 import os
+from pprint import pprint
 import math
 
 import numpy as np
@@ -19,15 +20,17 @@ class Solution:
         self.zone: Dict[str, Zone] = {z.id: z for z in zone}
         self.cars: Iterable[str] = cars
         self.days: int = days
+        # bool matrix of overlap. X and Y axis are the same.
         self.overlap: np.ndarray = calculate_overlap(requests)
-        self.opportunity_cost: np.ndarray = calculate_opportunity_cost(requests) * self.overlap
+        # List of relative cost of a reservation based on overlap. If high, the cost of not assigning this request would be high.
+        self.opportunity_cost: np.ndarray = np.sum(calculate_opportunity_cost(requests), axis=1)
 
-        print(self.requests)
-        print(self.zone)
-        print(self.cars)
-        print(self.days)
-        print(self.overlap)
-        print(self.opportunity_cost)
+        pprint(self.requests)
+        pprint(self.zone)
+        pprint(self.cars)
+        pprint(self.days)
+        pprint(self.overlap)
+        pprint(self.opportunity_cost)
 
         # Start with everything unassigned.
         self.car_zone: Dict[str, Zone] = {}
@@ -127,4 +130,4 @@ class Solution:
         return False
 
     def __repr__(self):
-        return 'Solution<feasible: {}, cost: {}>'.format(*self.feasible())
+        return 'Solution<feasible: {!r}, cost: {!r}>'.format(*self.feasible())

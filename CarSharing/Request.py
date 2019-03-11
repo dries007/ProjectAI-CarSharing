@@ -16,7 +16,7 @@ class Request:
         self.index = index  # index in the numpy matrices
 
     def __repr__(self):
-        return 'Request<id: {}, zone: {}, day: {}, start: {}, duration: {}, vehicles: {}, pen1: {}, pen2: {}>' \
+        return 'Request<id: {!r}, zone: {!r}, day: {!r}, start: {!r}, duration: {!r}, vehicles: {!r}, pen1: {!r}, pen2: {!r}>' \
             .format(self.id, self.zone, self.day, self.start, self.duration, self.vehicles, self.penalty1, self.penalty2)
 
     @property

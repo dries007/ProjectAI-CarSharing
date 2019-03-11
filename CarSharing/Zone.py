@@ -5,7 +5,7 @@ class Zone:
         self.neighbours = neighbours.split(",")
 
     def __repr__(self):
-        return 'Zone<id: {}, neighbours: {}>'.format(self.id, self.neighbours)
+        return 'Zone<id: {!r}, neighbours: {!r}>'.format(self.id, self.neighbours)
 
     def check(self, zone_id: str):
         """ Check if given zone matches or is a neighbour  """
