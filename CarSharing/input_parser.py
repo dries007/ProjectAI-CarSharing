@@ -39,7 +39,7 @@ def parse_input(file):
 
             line = csvfile.readline()
 
-    return requests, zones, vehicles, days, calculate_overlap(requests)
+    return requests, zones, vehicles, days
 
 
 def calculate_overlap(requests: [Request]) -> np.ndarray:
@@ -53,3 +53,23 @@ def calculate_overlap(requests: [Request]) -> np.ndarray:
             overlaps[j][i] = True
 
     return overlaps
+
+
+def calculate_opportunity_cost(requests: [Request]) -> np.ndarray:
+    """
+    Calculate the cost of one request vs another.
+    :param requests:
+    :return:
+    """
+    cost = np.zeros((len(requests), len(requests)), dtype=int)
+
+    request1: Request
+    request2: Request
+    for (i, request1), (j, request2) in itertools.combinations(enumerate(requests), 2):
+        pass
+        # todo
+        # if request1.real_end() > request2.real_start() or request2.real_end() < request1.real_start():
+        #     overlaps[i][j] = True
+        #     overlaps[j][i] = True
+
+    return cost

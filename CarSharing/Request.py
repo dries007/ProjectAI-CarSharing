@@ -2,7 +2,7 @@ from typing import List
 
 
 class Request:
-    def __init__(self, id, zone, day, start, duration, vehicles, penalty1, penalty2, overlap_index):
+    def __init__(self, id, zone, day, start, duration, vehicles, penalty1, penalty2, index):
         self.id: str = id
         self.zone: str = zone
         self.day: int = int(day)
@@ -11,7 +11,7 @@ class Request:
         self.vehicles: List[str] = vehicles.split(",")
         self.penalty1: int = int(penalty1)  # Not assigned
         self.penalty2: int = int(penalty2)  # Assigned to neighbour
-        self.overlap_index = overlap_index  # index in the overlap matrix
+        self.index = index  # index in the numpy matrices
 
     def __repr__(self):
         return 'Request<id: {}, zone: {}, day: {}, start: {}, duration: {}, vehicles: {}, pen1: {}, pen2: {}>' \

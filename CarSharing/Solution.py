@@ -7,18 +7,27 @@ import math
 
 import numpy as np
 
+from .input_parser import calculate_overlap, calculate_opportunity_cost
 from .Request import Request
 from .Zone import Zone
 
 
 class Solution:
-    def __init__(self, requests: List[Request], zone: List[Zone], cars: List[str], days: int, overlap: np.ndarray):
+    def __init__(self, requests: List[Request], zone: List[Zone], cars: List[str], days: int):
         self.request_list: List[Request] = requests
         self.requests: Dict[str, Request] = {r.id: r for r in requests}
         self.zone: Dict[str, Zone] = {z.id: z for z in zone}
         self.cars: Iterable[str] = cars
         self.days: int = days
-        self.overlap: np.ndarray = overlap
+        self.overlap: np.ndarray = calculate_overlap(requests)
+        self.opportunity_cost: np.ndarray = calculate_opportunity_cost(requests) * self.overlap
+
+        print(self.requests)
+        print(self.zone)
+        print(self.cars)
+        print(self.days)
+        print(self.overlap)
+        print(self.opportunity_cost)
 
         # Start with everything unassigned.
         self.car_zone: Dict[str, Zone] = {}
@@ -30,7 +39,7 @@ class Solution:
         cost = 0
         # Check for overlap. Loop over every assignment and check if any of the overlapping requests are assigned to the same cars.
         for req, car in self.req_car.items():
-            for i, overlap in enumerate(self.overlap[req.overlap_index]):
+            for i, overlap in enumerate(self.overlap[req.index]):
                 # Don't need to bother if there is no overlap
                 if not overlap:
                     continue
