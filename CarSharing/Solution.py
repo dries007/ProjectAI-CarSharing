@@ -37,6 +37,8 @@ class Solution:
         self.req_car: Dict[Request, str] = {}
         self.unassigned: List[Request] = [*requests]
 
+        self.create_initial_solution()
+
     def feasible(self) -> (bool, int):
         # Cost is inf if the solutions is not feasible.
         cost = 0
@@ -54,9 +56,9 @@ class Solution:
             zone = self.car_zone[car]
             if zone is None:  # Hard error.
                 raise RuntimeError('Request {} assigned to Car {} that is not in a zone.'.format(req, req))
-            if req.zone == zone.id:
+            if req.zone == zone:
                 pass
-            elif req.zone not in zone.neighbours:
+            elif req.zone.id in zone.neighbours:
                 cost += req.penalty2
             else:
                 print('Not feasible, request {} not in zone or neighbours ({}).'.format(req, zone))
@@ -85,12 +87,15 @@ class Solution:
     def validate(self, input_filename: str, output_filename: str):
         if not self.feasible():
             print('Not feasible, still validating...')
-
+        print("Verified output")
+        print("---------------")
         os.system('java -jar validator.jar "{}" "{}"'.format(input_filename, output_filename))
+        print("---------------")
 
     def create_initial_solution(self):
         """ Create initial feasible solution """
-        for request in self.unassigned:
+        # Because you can't modify the list on the loop, [:] creates a clone.
+        for request in self.unassigned[:]:
             selected_car = False
             selected_zone = False
 

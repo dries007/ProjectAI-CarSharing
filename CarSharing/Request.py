@@ -17,7 +17,7 @@ class Request:
 
     def __repr__(self):
         return 'Request<id: {!r}, zone: {!r}, day: {!r}, start: {!r}, duration: {!r}, vehicles: {!r}, pen1: {!r}, pen2: {!r}>' \
-            .format(self.id, self.zone, self.day, self.start, self.duration, self.vehicles, self.penalty1, self.penalty2)
+            .format(self.id, self.zone.id, self.day, self.start, self.duration, self.vehicles, self.penalty1, self.penalty2)
 
     @property
     def real_start(self):
