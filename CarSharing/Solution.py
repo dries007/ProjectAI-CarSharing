@@ -1,67 +1,46 @@
-from typing import Iterable
-from typing import List
-from typing import Dict
-
-import os
-from pprint import pprint
+import logging
 import math
+import random
+from typing import Dict, TYPE_CHECKING, Iterable
 
-import numpy as np
-
-from .input_parser import calculate_overlap, calculate_opportunity_cost
 from .Request import Request
 from .Zone import Zone
 
 
+if TYPE_CHECKING:
+    from .Problem import Problem
+
+
 class Solution:
-    def __init__(self, requests: List[Request], zone: List[Zone], cars: List[str], days: int):
-        self.request_list: List[Request] = requests
-        self.requests: Dict[str, Request] = {r.id: r for r in requests}
-        self.zone: Dict[str, Zone] = {z.id: z for z in zone}
-        self.cars: Iterable[str] = cars
-        self.days: int = days
-        # bool matrix of overlap. X and Y axis are the same.
-        self.overlap: np.ndarray = calculate_overlap(requests)
-        # List of relative cost of a reservation based on overlap. If high, the cost of not assigning this request would be high.
-        self.opportunity_cost: np.ndarray = np.sum(calculate_opportunity_cost(requests), axis=1)
+    # problem: Problem
+    car_zone: Dict[str, Zone]
+    req_car: Dict[Request, str]
 
-        # print('Input')
-        # pprint(self.requests)
-        # pprint(self.zone)
-        # pprint(self.cars)
-        # pprint(self.days)
-        # pprint(self.overlap)
-        # pprint(self.opportunity_cost)
+    def __init__(self, problem, car_zone, req_car):
+        """
+        :type problem: Problem
+        """
+        self.problem = problem
+        self.car_zone = car_zone
+        self.req_car = req_car
 
-        # Start with everything unassigned.
-        self.car_zone: Dict[str, Zone] = {}
-        self.req_car: Dict[Request, str] = {}
-        self.unassigned: List[Request] = [*requests]
+    def __str__(self):
+        return '<Solution: Feasible={} Cost={}>'.format(*self.feasible_cost())
 
-        self.create_initial_solution()
-
-        print('Initial solution')
-        print('car <> zone:')
-        pprint(self.car_zone)
-        print('request <> car:')
-        pprint(self.req_car)
-        print('unassigned:')
-        pprint(self.unassigned)
-        print('Feasible, Cost:', self.feasible())
-
-    def feasible(self) -> (bool, int):
+    def feasible_cost(self) -> (bool, int):
         # Cost is inf if the solutions is not feasible.
         cost = 0
-        # Check for overlap. Loop over every assignment and check if any of the overlapping requests are assigned to the same cars.
+        requests = list(self.problem.requests.values())
+        # Check for overlap in car assignments
         for req, car in self.req_car.items():
-            for i, overlap in enumerate(self.overlap[req.index]):
+            for i, overlap in enumerate(self.problem.overlap[req.index]):
                 # Don't need to bother if there is no overlap
                 if not overlap:
                     continue
                 # If there is overlap, error.
-                if (self.request_list[i] in self.req_car) and (car == self.req_car[self.request_list[i]]):
+                if (requests[i] in self.req_car.values()) and (car == self.req_car[requests[i]]):
                     return False, math.inf
-        # Request matched to car in it's own or neighbouring zone.
+        # Check if a request is matched to car in it's own or neighbouring zone.
         for req, car in self.req_car.items():
             zone = self.car_zone[car]
             if zone is None:  # Hard error.
@@ -74,77 +53,111 @@ class Solution:
                 print('Not feasible, request {} not in zone or neighbours ({}).'.format(req, zone))
                 return False, math.inf
         # Cost for unassigned requests
-        cost += sum(r.penalty1 for r in self.unassigned)
+        cost += sum(r.penalty1 for r in self.get_unassigned())
         return True, cost
 
-    def save(self, filename: str) -> None:
-        feasible, cost = self.feasible()
+    def save(self, filename):
+        feasible, cost = self.feasible_cost()
         if not feasible:
-            print('Not feasible, still saving...')
+            logging.warning('Not feasible, still saving...')
 
         with open(filename, 'w') as f:
             print(cost, file=f)
             print('+Vehicle assignments', file=f)
             for car, zone in self.car_zone.items():
                 print(car, zone.id, sep=';', file=f)
+            # Add all unassigned cars to a zone, to satisfy the verifier
+            unassigned_cars = set(self.problem.cars) - set(self.car_zone.keys())
+            if unassigned_cars:
+                first_zone = next(iter(self.problem.zones.values()))
+                logging.warning('Their are unassigned cars: %r', unassigned_cars)
+                for car in unassigned_cars:
+                    print(car, first_zone.id, sep=';', file=f)
             print('+Assigned requests', file=f)
             for req, car in self.req_car.items():
                 print(req.id, car, sep=';', file=f)
             print('+Unassigned requests', file=f)
-            for req in self.unassigned:
-                print(req.id,  file=f)
+            for req in self.get_unassigned():
+                print(req.id, file=f)
 
-    def validate(self, input_filename: str, output_filename: str):
-        if not self.feasible():
-            print('Not feasible, still validating...')
-        print("Verified output")
-        print("---------------")
-        os.system('java -jar validator.jar "{}" "{}"'.format(input_filename, output_filename))
-        print("---------------")
+    def get_requests_by_car(self, car: str) -> Iterable[Request]:
+        """
+        Generator. Use in for loops.
+        """
+        for k, v in self.req_car.items():
+            if v == car:
+                yield k
 
-    def create_initial_solution(self):
-        """ Create initial feasible solution """
-        # Because you can't modify the list on the loop, [:] creates a clone.
-        for request in self.unassigned[:]:
-            selected_car = False
-            selected_zone = False
+    def get_unassigned(self) -> Iterable[Request]:
+        """
+        Generator. Use in for loops.
+        """
+        assigned = self.req_car.keys()
+        for r in self.problem.requests.values():
+            if r not in assigned:
+                yield r
 
-            # Check for unassigned cars
-            for car in request.vehicles:
-                if car not in self.car_zone:
-                    selected_car = car
-                    selected_zone = request.zone
-                    break
-
-            # All cars are in a zone, search for a zone
-            if not selected_car:
-                for car in request.vehicles:
-                    zone = self.car_zone[car]
-                    if request.zone.check(zone.id) and not self.check_overlap(car, request):
-                        selected_car = car
-                        selected_zone = zone
-                        break
-
-            # If we found a car and a zone, save it
-            if selected_car and selected_zone:
-                self.car_zone[selected_car] = selected_zone
-                self.req_car[request] = selected_car
-                self.unassigned.remove(request)
-
-        # Add all unasigned cars to a zone
-        print('unassigned cars')
-        pprint(set(self.cars) - set(self.car_zone.keys()))
-        for car in set(self.cars) - set(self.car_zone.keys()):
-            self.car_zone[car] = next(iter(self.zone.values()))
-
-    def check_overlap(self, vehicle: str, request: Request):
-        """ Check if a request overlaps with other requests for a given car """
-        for req, car in self.req_car.items():
-            if car == vehicle:
-                if self.overlap[request.index, req.index]:
-                    return True
-
+    def check_overlap_car_request(self, car, request):
+        """
+        Returns True if there is overlap between the already assigned requests and a new one.
+        """
+        for r in self.get_requests_by_car(car):
+            if self.problem.overlap[request.index, r.index]:
+                # There is overlap
+                return True
         return False
 
-    def __repr__(self):
-        return 'Solution<feasible: {!r}, cost: {!r}>'.format(*self.feasible())
+    def greedy_assign(self, to_assign=None):
+        """
+        Used for the initial solution, but can also to used after changes to fill in the blanks.
+        By default works on the unassigned set. Otherwise specify to_assign.
+        """
+        if to_assign is None:
+            to_assign = self.get_unassigned()
+
+        for request in to_assign:
+            selected_car = None
+
+            # Check to see if a car is already assigned to this zone, if it is non-overlapping, use that.
+            # Also store free cars
+            free_cars = set()
+            # Also store possible neighbours
+            possible_neighbours = set()
+            for car in request.vehicles:
+
+                if car in self.car_zone.keys():
+                    zone = self.car_zone[car]
+                else:
+                    # Car still unassigned, skip for now.
+                    free_cars.add(car)
+                    continue
+
+                # Car is assigned to a zone.
+                if request.zone == zone:
+                    # Car is assigned to our zone. Now check overlap.
+                    if not self.check_overlap_car_request(car, request):
+                        # Found a match!
+                        selected_car = car
+                        break
+                elif request.zone.id in zone.neighbours:
+                    # Car is assigned to our neighbour. Now check overlap.
+                    if not self.check_overlap_car_request(car, request):
+                        # If we don't find a direct match, we can use this later.
+                        possible_neighbours.add(car)
+
+            if selected_car is None:
+                if possible_neighbours:
+                    # Pick one at random from the neighbour pile
+                    selected_car = random.sample(possible_neighbours, 1)[0]
+                elif free_cars:
+                    # Pick one at random from the free car pile
+                    selected_car = random.sample(free_cars, 1)[0]
+                    # Assign the car to this zone.
+                    self.car_zone[selected_car] = request.zone
+                else:
+                    # This request will be left unassigned.
+                    continue
+
+            # Here we must have a selected car.
+            self.req_car[request] = selected_car
+

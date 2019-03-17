@@ -1,8 +1,10 @@
+from typing import List
+
 
 class Zone:
     def __init__(self, id: str, neighbours: str):
-        self.id = id
-        self.neighbours = neighbours.split(",")
+        self.id: str = id
+        self.neighbours: List[str] = neighbours.split(",")
 
     def __repr__(self):
         return 'Zone<id: {!r}, neighbours: {!r}>'.format(self.id, self.neighbours)

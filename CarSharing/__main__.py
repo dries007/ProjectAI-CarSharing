@@ -1,33 +1,53 @@
 import argparse
+import logging
+import os
+import random
 import signal
-import os.path
+
+from .Problem import Problem
 from .input_parser import parse_input
-from .Solution import Solution
+
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s [%(levelname)s] %(message)s', datefmt='%H:%M:%S')
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--runtime', '-r', type=int, default=0, help='Max runtime in seconds.')
-parser.add_argument('--threads', '-j', type=int, default=0, help='Max number of threads.')
+
 parser.add_argument('input', help='The input file to parse')
+parser.add_argument('output', help='The output file')
+parser.add_argument('runtime', type=int, default=0, help='Max runtime in seconds.')
+parser.add_argument('seed', help='A seed for the RNG')
+parser.add_argument('threads', type=int, default=0, help='Max number of threads.')
 
 args = parser.parse_args()
 
 
-# noinspection PyUnusedLocal
 def timeout_handler(signum, frame):
+    logging.warning("Out of time! Signal: %r Frame: %r", signum, frame)
     raise TimeoutError("Out of time!")
 
 
-def main(filename):
-    solution = Solution(*parse_input(filename))
-    out_filename = os.path.splitext(filename)[0] + '_sol.csv'
-    solution.save(out_filename)
-    solution.validate(filename, out_filename)
-    print(solution)
+def validate(input_filename: str, output_filename: str):
+    logging.info("Verified output")
+    logging.info("---------------")
+    os.system('java -jar validator.jar "{}" "{}"'.format(input_filename, output_filename))
+    logging.info("---------------")
+
+
+def main(inp, outp, threads):
+    problem = Problem(*parse_input(inp))
+    # noinspection PyBroadException
+    try:
+        problem.run(threads)
+    except Exception:
+        logging.exception("Exception during run, saving anyway...")
+    problem.save(outp)
+    validate(inp, outp)
 
 
 if __name__ == "__main__":
     if args.runtime:
         signal.signal(signal.SIGALRM, timeout_handler)
         signal.alarm(args.runtime)
-    main(args.input)
+    if args.seed:
+        random.seed(args.seed)
+    main(args.input, args.output, args.threads)
