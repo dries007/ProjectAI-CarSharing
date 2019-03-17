@@ -1,6 +1,5 @@
 import logging
 import math
-import random
 from typing import Dict, TYPE_CHECKING, Iterable
 
 from .Request import Request
@@ -120,16 +119,17 @@ class Solution:
 
             # Check to see if a car is already assigned to this zone, if it is non-overlapping, use that.
             # Also store free cars
-            free_cars = set()
+            free_cars = []
             # Also store possible neighbours
-            possible_neighbours = set()
+            possible_neighbours = []
             for car in request.vehicles:
 
                 if car in self.car_zone.keys():
                     zone = self.car_zone[car]
                 else:
                     # Car still unassigned, skip for now.
-                    free_cars.add(car)
+                    if car not in free_cars:
+                        free_cars.append(car)
                     continue
 
                 # Car is assigned to a zone.
@@ -143,15 +143,16 @@ class Solution:
                     # Car is assigned to our neighbour. Now check overlap.
                     if not self.check_overlap_car_request(car, request):
                         # If we don't find a direct match, we can use this later.
-                        possible_neighbours.add(car)
+                        if car not in possible_neighbours:
+                            possible_neighbours.append(car)
 
             if selected_car is None:
                 if possible_neighbours:
                     # Pick one at random from the neighbour pile
-                    selected_car = random.sample(possible_neighbours, 1)[0]
+                    selected_car = self.problem.rng.choice(possible_neighbours)
                 elif free_cars:
                     # Pick one at random from the free car pile
-                    selected_car = random.sample(free_cars, 1)[0]
+                    selected_car = self.problem.rng.choice(free_cars)
                     # Assign the car to this zone.
                     self.car_zone[selected_car] = request.zone
                 else:

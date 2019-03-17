@@ -14,9 +14,9 @@ parser = argparse.ArgumentParser()
 
 parser.add_argument('input', help='The input file to parse')
 parser.add_argument('output', help='The output file')
-parser.add_argument('runtime', type=int, default=0, help='Max runtime in seconds.')
-parser.add_argument('seed', help='A seed for the RNG')
-parser.add_argument('threads', type=int, default=0, help='Max number of threads.')
+parser.add_argument('runtime', type=int, default=0, help='Max runtime in seconds.', nargs='?')
+parser.add_argument('seed', type=int, default=0, help='A seed for the RNG', nargs='?')
+parser.add_argument('threads', type=int, default=0, help='Max number of threads.', nargs='?')
 
 args = parser.parse_args()
 
@@ -33,8 +33,8 @@ def validate(input_filename: str, output_filename: str):
     logging.info("---------------")
 
 
-def main(inp, outp, threads):
-    problem = Problem(*parse_input(inp))
+def main(inp, outp, threads, rng):
+    problem = Problem(rng, *parse_input(inp))
     # noinspection PyBroadException
     try:
         problem.run(threads)
@@ -45,9 +45,8 @@ def main(inp, outp, threads):
 
 
 if __name__ == "__main__":
-    if args.runtime:
+    if args.runtime != 0:
         signal.signal(signal.SIGALRM, timeout_handler)
         signal.alarm(args.runtime)
-    if args.seed:
-        random.seed(args.seed)
-    main(args.input, args.output, args.threads)
+    rng = random.Random(args.seed) if args.seed != 0 else random.Random()
+    main(args.input, args.output, args.threads, rng)

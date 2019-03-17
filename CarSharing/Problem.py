@@ -1,5 +1,6 @@
 import itertools
 import logging
+import random
 from typing import List, Dict
 
 import numpy as np
@@ -10,6 +11,7 @@ from .Zone import Zone
 
 
 class Problem:
+    rng: random.Random
     requests: Dict[str, Request]
     zones: Dict[str, Zone]
     cars: List[str]
@@ -19,7 +21,8 @@ class Problem:
     opportunity_cost: np.ndarray
     solution: Solution
 
-    def __init__(self, requests, zones, cars, days):
+    def __init__(self, rng, requests, zones, cars, days):
+        self.rng = rng
         # {str id -> Request}
         self.requests = requests
         # {str id -> Zone}
