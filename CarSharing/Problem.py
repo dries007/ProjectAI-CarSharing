@@ -109,7 +109,7 @@ class Problem:
             # n = len(self.requests) // 4
             n = 10
 
-            for r in self.rng.sample(requests, self.rng.randint(1, n_requests // 2)):
+            for r in self.rng.sample(requests, self.rng.randint(n, 2*n)):
                 for _ in range(self.rng.randint(1, n)):
                     if sol.move_to_neighbour(r):
                         changed.append(sol)
