@@ -11,20 +11,21 @@ if TYPE_CHECKING:
 
 
 class Solution:
-    # problem: Problem
+    if TYPE_CHECKING:
+        problem: Problem
     car_zone: Dict[str, Zone]
     req_car: Dict[Request, str]
 
     def __init__(self, problem, car_zone, req_car):
-        """
-        :type problem: Problem
-        """
         self.problem = problem
         self.car_zone = car_zone
         self.req_car = req_car
 
     def __str__(self):
         return '<Solution: Feasible={} Cost={}>'.format(*self.feasible_cost())
+
+    def copy(self):
+        return Solution(self.problem, self.car_zone.copy(), self.req_car.copy())
 
     def feasible_cost(self) -> (bool, int):
         # Cost is inf if the solutions is not feasible.
@@ -83,7 +84,9 @@ class Solution:
         """
         Generator. Use in for loops.
         """
-        for k, v in self.req_car.items():
+        items = list(self.req_car.items())
+        self.problem.rng.shuffle(items)
+        for k, v in items:
             if v == car:
                 yield k
 
@@ -91,8 +94,10 @@ class Solution:
         """
         Generator. Use in for loops.
         """
-        assigned = self.req_car.keys()
-        for r in self.problem.requests.values():
+        assigned = list(self.req_car.keys())
+        requests = list(self.problem.requests.values())
+        self.problem.rng.shuffle(requests)
+        for r in requests:
             if r not in assigned:
                 yield r
 
@@ -105,6 +110,39 @@ class Solution:
                 # There is overlap
                 return True
         return False
+
+    def move_to_neighbour(self, req: Request) -> bool:
+        """
+        Attempt to move a request to a neighbour. Returns False if nothing changed.
+        If already in a neighbour, it tries another. Does _not_ move back to it's own zone.
+        Does not move to another car in the same zone.
+        """
+        if req not in self.req_car.keys():
+            # Request is not assigned.
+            return False
+
+        # Current data
+        current_car = self.req_car[req]
+        current_zone = self.car_zone[current_car]
+
+        # Make a rng list of assigned cars, excluding our own.
+        possible_cars = filter(lambda x: x in self.car_zone.keys() and x != current_car, req.vehicles)
+        # Check conditions for the zone.             Ignore same zone.      Don't move to own zone.    Zone is not a neighbour.
+        possible_cars = filter(lambda x: x[1] != current_zone and x[1] != req.zone and x[1].id in req.zone.neighbours,
+                               ((x, self.car_zone[x]) for x in possible_cars))
+        # Check conditions for the car (overlap)
+        possible_cars = filter(lambda x: not self.check_overlap_car_request(x[0], req), possible_cars)
+
+        possible_cars = list(x for x, _ in possible_cars)
+        if len(possible_cars) == 0:
+            return False
+
+        picked_car = self.problem.rng.choice(possible_cars)
+        # logging.info('possible_cars: Picked %r out of %r', picked_car, possible_cars)
+
+        self.req_car[req] = picked_car
+        self.greedy_assign()
+        return True
 
     def greedy_assign(self, to_assign=None):
         """
