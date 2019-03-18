@@ -162,3 +162,58 @@ class Solution:
             # Here we must have a selected car.
             self.req_car[request] = selected_car
 
+    def neighbour_to_self(self, request: Request) -> bool:
+        """
+        Move a request from a neighbour zone to the best zone
+        :param request: Request to move
+        :return: bool: Has a change been made?
+        """
+        # Check if the request is already assigned to a car
+        if request not in self.req_car.keys():
+            return False
+
+        current_car = self.req_car[request]
+        current_zone = self.car_zone[current_car]
+
+        # Check if request is already in the right zone
+        if current_zone == request.zone:
+            return False
+
+        # Check if other cars are avalaible in the right zone
+        for car in request.vehicles:
+            if car != current_car:
+                # Check if the car has a zone, and this zone is the right zone
+                if car in self.car_zone.keys() and self.car_zone[car] == request.zone:
+                    # Check for overlap with the new car and the request
+                    if not self.check_overlap_car_request(car, request):
+                        # This car is suitable as a replacement
+                        self.req_car[request] = car
+                        self.greedy_assign()
+                        return True
+
+        return False
+
+    def change_car_in_zone(self, request: Request) -> bool:
+        """
+        Try to swap the car for this request with a different car in the same zone
+        :param request: Request to change car
+        :return: bool: Has a change been made?
+        """
+        if request not in self.req_car.keys():
+            return False
+
+        current_car = self.req_car[request]
+        current_zone = self.car_zone[current_car]
+
+        for car in request.vehicles:
+            if car != current_car:
+                # Check if the car has a zone, and this zone is the current zone
+                if car in self.car_zone.keys() and self.car_zone[car] == current_zone:
+                    # Check for overlap with the new car and the request
+                    if not self.check_overlap_car_request(car, request):
+                        # This car is suitable as a replacement
+                        self.req_car[request] = car
+                        self.greedy_assign()
+                        return True
+
+        return False
