@@ -1,11 +1,10 @@
 import argparse
 import logging
+import multiprocessing
 import os
 import random
 import signal
 import time
-import multiprocessing
-import itertools
 
 from .Problem import Problem
 from .input_parser import parse_input
@@ -20,6 +19,7 @@ parser.add_argument('output', help='The output file')
 parser.add_argument('runtime', type=int, default=0, help='Max runtime in seconds.', nargs='?')
 parser.add_argument('seed', type=int, default=0, help='A seed for the RNG', nargs='?')
 parser.add_argument('threads', type=int, default=1, help='Max number of threads.', nargs='?')
+parser.add_argument('runs', type=int, default=0, help='Number of runs. Defaults to nr of threads', nargs='?')
 
 args = parser.parse_args()
 
@@ -47,8 +47,9 @@ def main(inp, rng):
         logging.exception('Exception during run, saving anyway...')
     # problem.save(outp)
     # validate(inp, outp)
-    logging.info('Total time: %r', time.perf_counter() - start)
-    return problem, stats
+    runtime = time.perf_counter() - start
+    logging.info('Total time: %r', runtime)
+    return problem, stats, runtime
 
 
 if __name__ == '__main__':
@@ -56,11 +57,13 @@ if __name__ == '__main__':
         signal.signal(signal.SIGALRM, timeout_handler)
         signal.alarm(args.runtime)
 
+    N = args.threads if args.runs == 0 else args.runs
+
     with multiprocessing.Pool(args.threads) as p:
         rng = random.Random(args.seed) if args.seed != 0 else random.Random()
         main_args = [
             (args.input, random.Random(rng.random()))
-            for _ in range(args.threads)
+            for _ in range(N)
         ]
         results = p.starmap(main, main_args)
 
@@ -71,5 +74,5 @@ if __name__ == '__main__':
     validate(args.input, args.output)
 
     with open('stats.csv', 'a') as f:
-        for _, stats in results:
-            print(args.input, *stats, sep=',', file=f)
+        for _, stats, runtime in results:
+            print(args.input, runtime, *stats, sep=',', file=f)

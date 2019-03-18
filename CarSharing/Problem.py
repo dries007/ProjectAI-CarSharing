@@ -88,26 +88,28 @@ class Problem:
         self.solution.greedy_assign()
 
         feasible, cost = self.solution.feasible_cost()
-
         stats.append(cost)
+
+        requests = list(self.requests.values())
+        n_requests = len(requests)
 
         prev_cost = -1
         while prev_cost != cost:
             prev_cost = cost
             logging.info('Result: %r %r', feasible, cost)
-            logging.info('Car <> Zone: %r', {k: v.id for k, v in self.solution.car_zone.items()})
-            logging.info('Request <> Car: %r', {k.id: v for k, v in self.solution.req_car.items()})
-            logging.info('Unassigned: %r', {k.id for k in self.solution.get_unassigned()})
-            logging.info('Feasible: %r Cost: %r', *self.solution.feasible_cost())
+            # logging.info('Car <> Zone: %r', {k: v.id for k, v in self.solution.car_zone.items()})
+            # logging.info('Request <> Car: %r', {k.id: v for k, v in self.solution.req_car.items()})
+            # logging.info('Unassigned: %r', {k.id for k in self.solution.get_unassigned()})
+            # logging.info('Feasible: %r Cost: %r', *self.solution.feasible_cost())
 
             changed: List[Solution] = []
 
             sol = self.solution.copy()
 
             # n = len(self.requests) // 4
-            n = 4
+            n = 10
 
-            for r in self.requests.values():
+            for r in self.rng.sample(requests, self.rng.randint(1, n_requests // 2)):
                 for _ in range(self.rng.randint(1, n)):
                     if sol.move_to_neighbour(r):
                         changed.append(sol)
@@ -131,7 +133,8 @@ class Problem:
             changed = [(x, *x.feasible_cost()) for x in changed]
             changed.sort(key=lambda x: x[2])
 
-            logging.info('Changes: n=%r, %r', len(changed), changed)
+            # logging.info('Changes: n=%r, %r', len(changed), changed)
+            logging.info('Changes: n=%r', len(changed))
 
             if any(filter(lambda x: not x[1], changed)):
                 raise RuntimeError("Made infeasible?")
