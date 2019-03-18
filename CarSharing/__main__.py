@@ -9,7 +9,7 @@ import time
 from .Problem import Problem
 from .input_parser import parse_input
 
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s [%(levelname)s] %(message)s', datefmt='%H:%M:%S')
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s [%(process)d %(levelname)s] %(message)s', datefmt='%H:%M:%S')
 
 
 parser = argparse.ArgumentParser()
