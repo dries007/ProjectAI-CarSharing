@@ -5,7 +5,6 @@ from typing import List, Dict
 
 import numpy as np
 
-from CarSharing.Solution import Solution
 from .Request import Request
 from .Solution import Solution
 from .Zone import Zone
@@ -81,7 +80,7 @@ class Problem:
             return
         self.solution.save(filename)
 
-    def run(self, threads):
+    def run(self, stats: List[int]):
         self.overlap = self.calculate_overlap()
         self.opportunity_cost = np.sum(self.calculate_opportunity_cost(), axis=1)
 
@@ -89,6 +88,8 @@ class Problem:
         self.solution.greedy_assign()
 
         feasible, cost = self.solution.feasible_cost()
+
+        stats.append(cost)
 
         prev_cost = -1
         while prev_cost != cost:
@@ -137,6 +138,11 @@ class Problem:
 
             changed = list(filter(lambda x: x[2] <= cost and x[2] <= changed[0][2], changed))
 
+            if len(changed) == 0:
+                logging.info('No better changes.')
+                break
+
             self.solution = self.rng.choice(changed)[0]
 
             feasible, cost = self.solution.feasible_cost()
+            stats.append(cost)

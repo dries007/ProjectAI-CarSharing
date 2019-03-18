@@ -21,7 +21,7 @@ class Solution:
         self.car_zone = car_zone
         self.req_car = req_car
 
-    def __str__(self):
+    def __repr__(self):
         return '<Solution: Feasible={} Cost={}>'.format(*self.feasible_cost())
 
     def copy(self):
