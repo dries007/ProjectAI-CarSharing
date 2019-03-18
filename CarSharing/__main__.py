@@ -3,6 +3,7 @@ import logging
 import os
 import random
 import signal
+import time
 
 from .Problem import Problem
 from .input_parser import parse_input
@@ -34,6 +35,7 @@ def validate(input_filename: str, output_filename: str):
 
 
 def main(inp, outp, threads, rng):
+    start = time.perf_counter()
     problem = Problem(rng, *parse_input(inp))
     # noinspection PyBroadException
     try:
@@ -42,6 +44,7 @@ def main(inp, outp, threads, rng):
         logging.exception("Exception during run, saving anyway...")
     problem.save(outp)
     validate(inp, outp)
+    logging.info("Total time: %r", time.perf_counter() - start)
 
 
 if __name__ == "__main__":
