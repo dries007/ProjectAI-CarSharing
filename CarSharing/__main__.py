@@ -25,7 +25,6 @@ args = parser.parse_args()
 
 
 def timeout_handler(signum, frame):
-    logging.warning("Out of time! Signal: %r Frame: %r", signum, frame)
     raise TimeoutError("Out of time!")
 
 
@@ -36,33 +35,29 @@ def validate(input_filename: str, output_filename: str):
     logging.info('---------------')
 
 
-def main(inp, rng):
+def main(inp, runtime, rng):
+    if runtime != 0:
+        signal.signal(signal.SIGALRM, timeout_handler)
+        signal.alarm(runtime)
     start = time.perf_counter()
+
+    logging.info('Start')
     problem = Problem(rng, *parse_input(inp))
-    stats = []
-    # noinspection PyBroadException
-    try:
-        problem.run(stats)
-    except Exception:
-        logging.exception('Exception during run, saving anyway...')
-    # problem.save(outp)
-    # validate(inp, outp)
+    i, stats = problem.run()
+    logging.info('end')
+
     runtime = time.perf_counter() - start
-    logging.info('Total time: %r', runtime)
+    logging.info('Total time: %r for %d iterations -> %d Hz', runtime, i, i / runtime)
     return problem, stats, runtime
 
 
 if __name__ == '__main__':
-    if args.runtime != 0:
-        signal.signal(signal.SIGALRM, timeout_handler)
-        signal.alarm(args.runtime)
-
     N = args.threads if args.runs == 0 else args.runs
 
     with multiprocessing.Pool(args.threads) as p:
         rng = random.Random(args.seed) if args.seed != 0 else random.Random()
         main_args = [
-            (args.input, random.Random(rng.random()))
+            (args.input, args.runtime, random.Random(rng.random()))
             for _ in range(N)
         ]
         results = p.starmap(main, main_args)
@@ -73,6 +68,6 @@ if __name__ == '__main__':
     best.save(args.output)
     validate(args.input, args.output)
 
-    with open('stats.csv', 'a') as f:
+    with open(args.output + '.stats.csv', 'a') as f:
         for _, stats, runtime in results:
-            print(args.input, runtime, *stats, sep=',', file=f)
+            print(*stats, sep=',', file=f)
