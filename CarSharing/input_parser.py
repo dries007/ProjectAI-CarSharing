@@ -4,11 +4,11 @@ import numpy as np
 
 from typing import Dict, List
 
-from .Request import Request
-from .Zone import Zone
+from CarSharing.Zone import Zone
+from CarSharing.Request import Request
 
 
-def calculate_overlap(requests) -> np.ndarray:
+def calculate_overlap(requests, debug) -> np.ndarray:
     """
     Returns np array of booleans, where a True indicates an overlap between that row and col's request.
     """
@@ -16,12 +16,17 @@ def calculate_overlap(requests) -> np.ndarray:
 
     for (i, request1), (j, request2) in itertools.combinations(enumerate(requests.values()), 2):
         if request1.real_start > request2.real_start:
-            tmp = request1
-            request1 = request2
-            request2 = tmp
-        if request1.real_end > request2.real_start or request2.real_end < request1.real_start:
+            request1, request2 = request2, request1  # swap!
+        # Request 1 starts before request 2 starts
+        # If request 1 ends after request 2 starts, it overlaps
+        if request1.real_end >= request2.real_start:
             overlaps[i][j] = True
             overlaps[j][i] = True
+    if debug:
+        import png
+        with open('overlap.png', 'wb') as f:
+            w = png.Writer(len(requests), len(requests), greyscale=True, bitdepth=1)
+            w.write(f, overlaps)
     return overlaps
 
 
@@ -39,7 +44,7 @@ def calculate_opportunity_cost(requests) -> np.ndarray:
     return np.sum(cost, axis=1)
 
 
-def parse_input(file):
+def parse_input(file, debug):
     requests: Dict[str, Request] = {}
     zones: Dict[str, Zone] = {}
     vehicles: List[str] = []
@@ -79,4 +84,4 @@ def parse_input(file):
         # noinspection PyTypeChecker
         request.zone = zones[request.zone]
 
-    return requests, zones, vehicles, days, calculate_overlap(requests), calculate_opportunity_cost(requests)
+    return requests, zones, vehicles, days, calculate_overlap(requests, debug), calculate_opportunity_cost(requests)

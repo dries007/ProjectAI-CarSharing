@@ -8,11 +8,12 @@ import subprocess as sp
 import tempfile
 import time
 
-from .Problem import Problem
-from .input_parser import parse_input
-
-
+# Yey circular imports
 DEBUG = 'DEBUG' in os.environ
+
+from CarSharing.Problem import Problem
+from CarSharing.input_parser import parse_input
+
 
 logging.basicConfig(level=logging.DEBUG if DEBUG else logging.INFO, format='%(asctime)s [%(name)s %(levelname)s] %(message)s', datefmt='%H:%M:%S')
 
@@ -80,7 +81,49 @@ def main():
     root = os.path.dirname(os.path.abspath(args.output))
     logging.info('Working & output dir: %r', root)
     rng = random.Random(args.seed) if args.seed != 0 else random.Random()
-    inp = parse_input(args.input)
+    inp = parse_input(args.input, DEBUG)
+
+    # For performance profiling ONLY, it can't use multiple processes.
+    # This could be used if the threads parameter was 1 EXCEPT it doesn't write the file in time.
+    if args.threads == 1 and DEBUG:
+
+        def interrupt(_, __):
+            raise KeyboardInterrupt("Time's up!")
+        signal.signal(signal.SIGALRM, interrupt)
+        signal.alarm(args.runtime)
+
+        start = time.perf_counter()
+        total_iterations = 0
+        results = []
+        try:
+            aborted = False
+            while not aborted:
+                start_i = time.perf_counter()
+                problem = Problem(0, random.Random(rng.random()), *inp)
+                iterations, score, stats, aborted = problem.run(DEBUG)
+                runtime = time.perf_counter() - start_i
+                problem.log.debug('Time: %r for %d iterations -> %d Hz', runtime, iterations, iterations / runtime)
+                total_iterations += iterations
+                results.append((score, stats, problem))
+        except (KeyboardInterrupt, TimeoutError):
+            pass
+        runtime = time.perf_counter() - start
+
+        logging.debug('Global runtime: %r for %d iterations -> %d Hz', runtime, total_iterations, total_iterations / runtime)
+        results.sort(key=lambda x: x[0])
+
+        with open(args.output, 'w') as f:
+            results[0][2].save(f)
+
+        import matplotlib.pyplot as plt
+        plt.title(args.input)
+        plt.xlabel('Iterations')
+        plt.ylabel('Cost')
+        for score, stats, problem in results:
+            plt.plot(stats)
+        plt.show()
+
+        return
 
     # The queue is used to pass back values to the mail thread.
     queue = mp.Queue()
@@ -153,6 +196,8 @@ def main():
         import matplotlib.pyplot as plt
 
         plt.title(args.input)
+        plt.xlabel('Iterations')
+        plt.ylabel('Cost')
         for _, filename, stats in results:
             plt.plot(stats)
         plt.show()

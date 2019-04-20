@@ -4,15 +4,16 @@ from typing import List, Dict
 
 import numpy as np
 
-from .Request import Request
-from .Solution import Solution
-from .Zone import Zone
+from CarSharing.RandomDict import RandomDict
+from CarSharing.Request import Request
+from CarSharing.Solution import Solution
+from CarSharing.Zone import Zone
 
 
 class Problem:
     rng: random.Random
-    requests: Dict[str, Request]
-    zones: Dict[str, Zone]
+    request_map: Dict[str, Request]
+    zone_map: Dict[str, Zone]
     cars: List[str]
     days: int
 
@@ -24,9 +25,11 @@ class Problem:
         self.log = logging.getLogger('JOB %d' % i)
         self.rng = rng
         # {str id -> Request}
-        self.requests = requests
+        self.request_map = requests
+        self.requests = tuple(requests.values())
         # {str id -> Zone}
-        self.zones = zones
+        self.zone_map = zones
+        self.zones = tuple(zones.values())
         # [str id]
         self.cars = cars
         # int
@@ -49,9 +52,7 @@ class Problem:
         self.solution.save(file)
 
     def run(self, debug) -> (int, list):
-        requests = tuple(self.requests.values())
-
-        self.solution = Solution(self, {}, {})
+        self.solution = Solution(self, RandomDict.from_random(self.rng), RandomDict.from_random(self.rng))
         self.solution.greedy_assign()
         lowest_cost = self.solution.feasible_cost()[1]
 
@@ -61,16 +62,16 @@ class Problem:
         i = 0
         sol = self.solution.copy()
         last_improvement = 0
-        max_stale_rounds = 10 * len(requests)
+        max_stale_rounds = 10 * len(self.requests)
         aborted = False
         try:
             self.log.debug('Started actually iterating...')
 
             while True:
-                req = self.rng.choice(requests)
+                # todo: add any extra "move" functions here. They should all be runnable without arguments.
                 func = self.rng.choice((sol.move_to_neighbour, sol.neighbour_to_self, sol.change_car_in_zone))
 
-                if func(req):
+                if func():
                     feasible, cost = sol.feasible_cost()
                     if not feasible:
                         raise RuntimeError('Made infeasible?')

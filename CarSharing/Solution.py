@@ -1,9 +1,11 @@
 import logging
 import math
-from typing import Dict, TYPE_CHECKING, Iterable
+import numpy as np
+from typing import TYPE_CHECKING, Iterable
 
-from .Request import Request
-from .Zone import Zone
+from CarSharing.RandomDict import RandomDictType
+from CarSharing.Request import Request
+from CarSharing.Zone import Zone
 
 
 if TYPE_CHECKING:
@@ -13,8 +15,8 @@ if TYPE_CHECKING:
 class Solution:
     if TYPE_CHECKING:
         problem: Problem
-    car_zone: Dict[str, Zone]
-    req_car: Dict[Request, str]
+    car_zone: RandomDictType[str, Zone]
+    req_car: RandomDictType[Request, str]
 
     def __init__(self, problem, car_zone, req_car):
         self.problem = problem
@@ -32,20 +34,8 @@ class Solution:
         # Cost is inf if the solutions is not feasible.
         cost = 0
 
-        # todo: replace all of these "list(self.problem.requests.values())" with a cached value or generator instead of list copy.
-
-        requests = list(self.problem.requests.values())
-        # Check for overlap in car assignments
         for req, car in self.req_car.items():
-            for i, overlap in enumerate(self.problem.overlap[req.index]):
-                # Don't need to bother if there is no overlap
-                if not overlap:
-                    continue
-                # If there is overlap, error.
-                if (requests[i] in self.req_car.values()) and (car == self.req_car[requests[i]]):
-                    return False, math.inf
-        # Check if a request is matched to car in it's own or neighbouring zone.
-        for req, car in self.req_car.items():
+            # Check if a request is matched to car in it's own or neighbouring zone.
             zone = self.car_zone[car]
             if zone is None:  # Hard error.
                 raise RuntimeError('Request {} assigned to Car {} that is not in a zone.'.format(req, req))
@@ -56,6 +46,14 @@ class Solution:
             else:
                 logging.warning('Not feasible, request {} not in zone or neighbours ({}).'.format(req, zone))
                 return False, math.inf
+
+            # Check for overlap in car assignments (nonzero returns a list of lists of indexes)
+            for i in np.nonzero(self.problem.overlap[req.index])[0]:
+                req_i = self.problem.requests[i]
+                # If there is overlap (req is assigned and is assigned to the same car), error.
+                if req_i in self.req_car and car == self.req_car[req_i]:
+                    return False, math.inf
+
         # Cost for unassigned requests
         cost += sum(r.penalty1 for r in self.get_unassigned(shuffle=False))
         self.cost = cost
@@ -71,7 +69,7 @@ class Solution:
         # Add all unassigned cars to a zone, to satisfy the verifier
         unassigned_cars = set(self.problem.cars) - set(self.car_zone.keys())
         if unassigned_cars:
-            first_zone = next(iter(self.problem.zones.values()))
+            first_zone = next(iter(self.problem.zone_map.values()))
             logging.warning('Their are unassigned cars: %r', unassigned_cars)
             for car in unassigned_cars:
                 print(car, first_zone.id, sep=';', file=file)
@@ -86,7 +84,7 @@ class Solution:
         """
         Generator. Use in for loops.
         """
-        items = (req for req, car in filter(lambda x: x[1] == car_needle, self.req_car.items()))
+        items = (req for req, car in self.req_car.items() if car == car_needle)
         if shuffle:
             items = list(items)
             self.problem.rng.shuffle(items)
@@ -97,55 +95,22 @@ class Solution:
         Generator. Use in for loops.
         """
         assigned = self.req_car.keys()
-        requests = self.problem.requests.values()
-        filtered = filter(lambda r: r not in assigned, requests)
+        filtered = filter(lambda r: r not in assigned, self.problem.requests)
         if shuffle:
             filtered = list(filtered)
             self.problem.rng.shuffle(filtered)
         return filtered
 
-    def check_overlap_car_request(self, car, request):
+    def check_overlap_car_request(self, car: str, request: Request):
         """
         Returns True if there is overlap between the already assigned requests and a new one.
         """
+        # All indexes with overlap
+        overlap = self.problem.overlap[request.index]
         for r in self.get_requests_by_car(car, shuffle=False):
-            if self.problem.overlap[request.index, r.index]:
-                # There is overlap
+            if overlap[r.index]:
                 return True
         return False
-
-    def move_to_neighbour(self, req: Request) -> bool:
-        """
-        Attempt to move a request to a neighbour. Returns False if nothing changed.
-        If already in a neighbour, it tries another. Does _not_ move back to it's own zone.
-        Does not move to another car in the same zone.
-        """
-        if req not in self.req_car.keys():
-            # Request is not assigned.
-            return False
-
-        # Current data
-        current_car = self.req_car[req]
-        current_zone = self.car_zone[current_car]
-
-        # Make a rng list of assigned cars, excluding our own.
-        possible_cars = filter(lambda x: x in self.car_zone.keys() and x != current_car, req.vehicles)
-        # Check conditions for the zone.             Ignore same zone.      Don't move to own zone.    Zone is not a neighbour.
-        possible_cars = filter(lambda x: x[1] != current_zone and x[1] != req.zone and x[1].id in req.zone.neighbours,
-                               ((x, self.car_zone[x]) for x in possible_cars))
-        # Check conditions for the car (overlap)
-        possible_cars = filter(lambda x: not self.check_overlap_car_request(x[0], req), possible_cars)
-
-        possible_cars = list(x for x, _ in possible_cars)
-        if len(possible_cars) == 0:
-            return False
-
-        picked_car = self.problem.rng.choice(possible_cars)
-        # logging.info('possible_cars: Picked %r out of %r', picked_car, possible_cars)
-
-        self.req_car[req] = picked_car
-        self.greedy_assign()
-        return True
 
     def greedy_assign(self, to_assign=None):
         """
@@ -153,7 +118,7 @@ class Solution:
         By default works on the unassigned set. Otherwise specify to_assign.
         """
         if to_assign is None:
-            to_assign = self.get_unassigned()
+            to_assign = self.get_unassigned(shuffle=True)
 
         for request in to_assign:
             selected_car = None
@@ -203,58 +168,108 @@ class Solution:
             # Here we must have a selected car.
             self.req_car[request] = selected_car
 
-    def neighbour_to_self(self, request: Request) -> bool:
+    def move_to_neighbour(self, req: Request = None) -> bool:
         """
-        Move a request from a neighbour zone to the best zone
-        :param request: Request to move
+        Attempt to move a request to a neighbour. Returns False if nothing changed.
+        If already in a neighbour, it tries another. Does _not_ move back to it's own zone.
+        Does not move to another car in the same zone.
+        :param req: Request to move, or None for a random assigned request
         :return: bool: Has a change been made?
         """
-        # Check if the request is already assigned to a car
-        if request not in self.req_car.keys():
+        if req is None:
+            req = self.req_car.random_key()
+        elif req not in self.req_car.keys():
+            # Request is not assigned.
             return False
 
-        current_car = self.req_car[request]
+        # Current data
+        current_car = self.req_car[req]
+        current_zone = self.car_zone[current_car]
+        assigned_cars = self.car_zone.keys()
+
+        # Make a list of all cars the request can be assigned to, excluding our current and excluding any unassigned cars
+        possible_cars = filter(lambda c: c != current_car and c in assigned_cars, req.vehicles)
+
+        # Set of acceptable zones based on the conditions:                    Ignore same zone, Don't move to own zone, Zone must be a neighbour.
+        allowed_zones = {z for z in {self.car_zone[c] for c in possible_cars} if z != current_zone and z != req.zone and z.id in req.zone.neighbours}
+        # If there are no acceptable zones, quit
+        if len(allowed_zones) == 0:
+            return False
+
+        # Now filter out cars that are not assigned to one of those zones or that would result in overlap
+        possible_cars = filter(lambda c: self.car_zone[c] in allowed_zones and not self.check_overlap_car_request(c, req), possible_cars)
+
+        possible_cars = list(possible_cars)
+        if len(possible_cars) == 0:
+            return False
+
+        picked_car = self.problem.rng.choice(possible_cars)
+        # logging.info('possible_cars: Picked %r out of %r', picked_car, possible_cars)
+
+        self.req_car[req] = picked_car
+        self.greedy_assign()
+        return True
+
+    def neighbour_to_self(self, req: Request = None) -> bool:
+        """
+        Move a request from a neighbour zone to the best zone
+        :param req: Request to move, or None for a random assigned request
+        :return: bool: Has a change been made?
+        """
+        if req is None:
+            req = self.req_car.random_key()
+        elif req not in self.req_car.keys():
+            # Request is not assigned.
+            return False
+
+        current_car = self.req_car[req]
         current_zone = self.car_zone[current_car]
 
         # Check if request is already in the right zone
-        if current_zone == request.zone:
+        if current_zone == req.zone:
             return False
 
         # Check if other cars are available in the right zone
-        for car in request.vehicles:
+        for car in req.vehicles:
             if car != current_car:
                 # Check if the car has a zone, and this zone is the right zone
-                if car in self.car_zone.keys() and self.car_zone[car] == request.zone:
+                if car in self.car_zone.keys() and self.car_zone[car] == req.zone:
                     # Check for overlap with the new car and the request
-                    if not self.check_overlap_car_request(car, request):
+                    if not self.check_overlap_car_request(car, req):
                         # This car is suitable as a replacement
-                        self.req_car[request] = car
+                        self.req_car[req] = car
                         self.greedy_assign()
                         return True
 
         return False
 
-    def change_car_in_zone(self, request: Request) -> bool:
+    def change_car_in_zone(self, req: Request = None) -> bool:
         """
         Try to swap the car for this request with a different car in the same zone
-        :param request: Request to change car
+        :param req: Request to move, or None for a random assigned request
         :return: bool: Has a change been made?
         """
-        if request not in self.req_car.keys():
+        if req is None:
+            req = self.req_car.random_key()
+        elif req not in self.req_car.keys():
+            # Request is not assigned.
             return False
 
-        current_car = self.req_car[request]
+        current_car = self.req_car[req]
         current_zone = self.car_zone[current_car]
 
-        for car in request.vehicles:
+        for car in req.vehicles:
             if car != current_car:
                 # Check if the car has a zone, and this zone is the current zone
                 if car in self.car_zone.keys() and self.car_zone[car] == current_zone:
                     # Check for overlap with the new car and the request
-                    if not self.check_overlap_car_request(car, request):
+                    if not self.check_overlap_car_request(car, req):
                         # This car is suitable as a replacement
-                        self.req_car[request] = car
+                        self.req_car[req] = car
                         self.greedy_assign()
                         return True
 
         return False
+
+    # todo: add more "drastic" moves, such as just moving a car to a different region.
+    # todo: add a "switch cars" move, where a request just moves to a different car.
