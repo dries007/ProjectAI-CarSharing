@@ -1,4 +1,3 @@
-import itertools
 import logging
 import random
 from typing import List, Dict
@@ -21,7 +20,8 @@ class Problem:
     opportunity_cost: np.ndarray
     solution: Solution
 
-    def __init__(self, rng, requests, zones, cars, days):
+    def __init__(self, i, rng, requests, zones, cars, days, overlap, opportunity_cost):
+        self.log = logging.getLogger('JOB %d' % i)
         self.rng = rng
         # {str id -> Request}
         self.requests = requests
@@ -31,83 +31,68 @@ class Problem:
         self.cars = cars
         # int
         self.days = days
-
-        # Computed in run, since they are part of the computation, not input parsing.
-        # ---------------
-
         # np {(int, int) -> bool}: Indexes are the value indexes of item in requests map.
-        self.overlap = None
+        self.overlap = overlap
         # np {(int) -> int}: Index is the value indexes of item in requests map. Higher means worse to leave unassigned.
-        self.opportunity_cost = None
+        self.opportunity_cost = opportunity_cost
+
         # Solution object, holds assignments etc
         self.solution = None
 
     def __repr__(self):
         return 'CarSharing<solution={!r}>'.format(self.solution)
 
-    def calculate_overlap(self) -> np.ndarray:
-        """
-        Returns np array of booleans, where a True indicates an overlap between that row and col's request.
-        """
-        overlaps = np.zeros((len(self.requests), len(self.requests)), dtype=bool)
-
-        for (i, request1), (j, request2) in itertools.combinations(enumerate(self.requests.values()), 2):
-            if request1.real_start > request2.real_start:
-                tmp = request1
-                request1 = request2
-                request2 = tmp
-            if request1.real_end > request2.real_start or request2.real_end < request1.real_start:
-                overlaps[i][j] = True
-                overlaps[j][i] = True
-        return overlaps
-
-    def calculate_opportunity_cost(self) -> np.ndarray:
-        """
-        Calculate the cost of one request vs another, based on the penalty2 (not accept) cost only.
-        Multiply with overlap matrix for easy summing of rows/cols
-
-        A high positive sum in a row/col means the row/col's request is important.
-        """
-        cost = np.zeros((len(self.requests), len(self.requests)), dtype=int)
-        for (i, request1), (j, request2) in itertools.combinations(enumerate(self.requests.values()), 2):
-            cost[i][j] = request1.penalty1 - request2.penalty1
-            cost[j][i] = request2.penalty1 - request1.penalty1
-        return cost
-
-    def save(self, filename: str) -> None:
+    def save(self, file) -> None:
         if self.solution is None:
-            logging.error('No solution to save.')
+            self.log.error('No solution to save.')
             return
-        self.solution.save(filename)
+        self.solution.save(file)
 
-    def run(self) -> (int, list):
-        self.overlap = self.calculate_overlap()
-        self.opportunity_cost = np.sum(self.calculate_opportunity_cost(), axis=1)
+    def run(self, debug) -> (int, list):
         requests = tuple(self.requests.values())
 
         self.solution = Solution(self, {}, {})
         self.solution.greedy_assign()
         lowest_cost = self.solution.feasible_cost()[1]
-        stats = [lowest_cost]
 
-        sol = self.solution.copy()
+        if debug:
+            stats = [lowest_cost]
+
         i = 0
+        sol = self.solution.copy()
+        last_improvement = 0
+        max_stale_rounds = 10 * len(requests)
+        aborted = False
         try:
+            self.log.debug('Started actually iterating...')
+
             while True:
                 req = self.rng.choice(requests)
                 func = self.rng.choice((sol.move_to_neighbour, sol.neighbour_to_self, sol.change_car_in_zone))
 
                 if func(req):
                     feasible, cost = sol.feasible_cost()
-                    # if not feasible:
-                    #     raise RuntimeError("Made infeasible?")
+                    if not feasible:
+                        raise RuntimeError('Made infeasible?')
                     if cost < lowest_cost:
                         lowest_cost = cost
                         self.solution = sol
+                        last_improvement = i
 
                     sol = self.solution.copy()
 
                 i += 1
-                stats.append(lowest_cost)
-        except TimeoutError:
-            return i, stats
+                if debug:
+                    stats.append(lowest_cost)
+
+                if i - last_improvement > max_stale_rounds:
+                    self.log.debug('No improvements for %d cycles.', max_stale_rounds)
+                    break
+
+        except (KeyboardInterrupt, TimeoutError):
+            aborted = True
+
+        if not debug:
+            stats = ()
+        return i, lowest_cost, stats, aborted
+

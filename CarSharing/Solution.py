@@ -20,9 +20,10 @@ class Solution:
         self.problem = problem
         self.car_zone = car_zone
         self.req_car = req_car
+        self.cost = None
 
     def __repr__(self):
-        return '<Solution: Feasible={} Cost={}>'.format(*self.feasible_cost())
+        return '<Solution: Last run cost={}>'.format(self.cost)
 
     def copy(self):
         return Solution(self.problem, self.car_zone.copy(), self.req_car.copy())
@@ -30,6 +31,9 @@ class Solution:
     def feasible_cost(self) -> (bool, int):
         # Cost is inf if the solutions is not feasible.
         cost = 0
+
+        # todo: replace all of these "list(self.problem.requests.values())" with a cached value or generator instead of list copy.
+
         requests = list(self.problem.requests.values())
         # Check for overlap in car assignments
         for req, car in self.req_car.items():
@@ -50,62 +54,61 @@ class Solution:
             elif req.zone.id in zone.neighbours:
                 cost += req.penalty2
             else:
-                print('Not feasible, request {} not in zone or neighbours ({}).'.format(req, zone))
+                logging.warning('Not feasible, request {} not in zone or neighbours ({}).'.format(req, zone))
                 return False, math.inf
         # Cost for unassigned requests
-        cost += sum(r.penalty1 for r in self.get_unassigned())
+        cost += sum(r.penalty1 for r in self.get_unassigned(shuffle=False))
+        self.cost = cost
         return True, cost
 
-    def save(self, filename):
-        feasible, cost = self.feasible_cost()
-        if not feasible:
-            logging.warning('Not feasible, still saving...')
+    def save(self, file):
+        logging.info('Saving a solution with score %r', self.cost)
 
-        with open(filename, 'w') as f:
-            print(cost, file=f)
-            print('+Vehicle assignments', file=f)
-            for car, zone in self.car_zone.items():
-                print(car, zone.id, sep=';', file=f)
-            # Add all unassigned cars to a zone, to satisfy the verifier
-            unassigned_cars = set(self.problem.cars) - set(self.car_zone.keys())
-            if unassigned_cars:
-                first_zone = next(iter(self.problem.zones.values()))
-                logging.warning('Their are unassigned cars: %r', unassigned_cars)
-                for car in unassigned_cars:
-                    print(car, first_zone.id, sep=';', file=f)
-            print('+Assigned requests', file=f)
-            for req, car in self.req_car.items():
-                print(req.id, car, sep=';', file=f)
-            print('+Unassigned requests', file=f)
-            for req in self.get_unassigned():
-                print(req.id, file=f)
+        print(self.cost, file=file)
+        print('+Vehicle assignments', file=file)
+        for car, zone in self.car_zone.items():
+            print(car, zone.id, sep=';', file=file)
+        # Add all unassigned cars to a zone, to satisfy the verifier
+        unassigned_cars = set(self.problem.cars) - set(self.car_zone.keys())
+        if unassigned_cars:
+            first_zone = next(iter(self.problem.zones.values()))
+            logging.warning('Their are unassigned cars: %r', unassigned_cars)
+            for car in unassigned_cars:
+                print(car, first_zone.id, sep=';', file=file)
+        print('+Assigned requests', file=file)
+        for req, car in self.req_car.items():
+            print(req.id, car, sep=';', file=file)
+        print('+Unassigned requests', file=file)
+        for req in self.get_unassigned(shuffle=False):
+            print(req.id, file=file)
 
-    def get_requests_by_car(self, car: str) -> Iterable[Request]:
+    def get_requests_by_car(self, car_needle: str, shuffle=True) -> Iterable[Request]:
         """
         Generator. Use in for loops.
         """
-        items = list(self.req_car.items())
-        self.problem.rng.shuffle(items)
-        for k, v in items:
-            if v == car:
-                yield k
+        items = (req for req, car in filter(lambda x: x[1] == car_needle, self.req_car.items()))
+        if shuffle:
+            items = list(items)
+            self.problem.rng.shuffle(items)
+        return items
 
-    def get_unassigned(self) -> Iterable[Request]:
+    def get_unassigned(self, shuffle=True) -> Iterable[Request]:
         """
         Generator. Use in for loops.
         """
-        assigned = list(self.req_car.keys())
-        requests = list(self.problem.requests.values())
-        self.problem.rng.shuffle(requests)
-        for r in requests:
-            if r not in assigned:
-                yield r
+        assigned = self.req_car.keys()
+        requests = self.problem.requests.values()
+        filtered = filter(lambda r: r not in assigned, requests)
+        if shuffle:
+            filtered = list(filtered)
+            self.problem.rng.shuffle(filtered)
+        return filtered
 
     def check_overlap_car_request(self, car, request):
         """
         Returns True if there is overlap between the already assigned requests and a new one.
         """
-        for r in self.get_requests_by_car(car):
+        for r in self.get_requests_by_car(car, shuffle=False):
             if self.problem.overlap[request.index, r.index]:
                 # There is overlap
                 return True
@@ -217,7 +220,7 @@ class Solution:
         if current_zone == request.zone:
             return False
 
-        # Check if other cars are avalaible in the right zone
+        # Check if other cars are available in the right zone
         for car in request.vehicles:
             if car != current_car:
                 # Check if the car has a zone, and this zone is the right zone
