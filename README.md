@@ -10,6 +10,8 @@ Created with Python 3.7 (Insertion order dict is required, so CPython 3.6 might 
 
 Run with `python -m CarSharing <input_file> <solution_file> [time_limit] [random_seed] [num_threads]`
 
+For extra debug output, set the `DEBUG` environment variable.
+
 ## Algorithm descriptions
 
 A list of algorithms.
@@ -35,3 +37,12 @@ This is not deterministic due to the random picking of a match in 1.i.a and 1.ii
         2. Continue from 1.
     4. Leave this request unassigned.
 
+## Solutions for the provided course material
+
+Provided via Toledo:
+
++ 100_5_14_25.csv: 10015
++ 100_5_19_25.csv: 6700
++ 210_5_33_25.csv: 14325
++ 210_5_44_25.csv: 5890
++ 360_5_71_25.csv: 12955

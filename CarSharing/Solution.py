@@ -94,8 +94,7 @@ class Solution:
         """
         Generator. Use in for loops.
         """
-        assigned = self.req_car.keys()
-        filtered = filter(lambda r: r not in assigned, self.problem.requests)
+        filtered = filter(lambda r: r not in self.req_car, self.problem.requests)
         if shuffle:
             filtered = list(filtered)
             self.problem.rng.shuffle(filtered)
@@ -130,7 +129,7 @@ class Solution:
             possible_neighbours = []
             for car in request.vehicles:
 
-                if car in self.car_zone.keys():
+                if car in self.car_zone:
                     zone = self.car_zone[car]
                 else:
                     # Car still unassigned, skip for now.
@@ -178,14 +177,14 @@ class Solution:
         """
         if req is None:
             req = self.req_car.random_key()
-        elif req not in self.req_car.keys():
+        elif req not in self.req_car:
             # Request is not assigned.
             return False
 
         # Current data
         current_car = self.req_car[req]
         current_zone = self.car_zone[current_car]
-        assigned_cars = self.car_zone.keys()
+        assigned_cars = self.car_zone
 
         # Make a list of all cars the request can be assigned to, excluding our current and excluding any unassigned cars
         possible_cars = filter(lambda c: c != current_car and c in assigned_cars, req.vehicles)
@@ -199,7 +198,7 @@ class Solution:
         # Now filter out cars that are not assigned to one of those zones or that would result in overlap
         possible_cars = filter(lambda c: self.car_zone[c] in allowed_zones and not self.check_overlap_car_request(c, req), possible_cars)
 
-        possible_cars = list(possible_cars)
+        possible_cars = tuple(possible_cars)
         if len(possible_cars) == 0:
             return False
 
@@ -218,7 +217,7 @@ class Solution:
         """
         if req is None:
             req = self.req_car.random_key()
-        elif req not in self.req_car.keys():
+        elif req not in self.req_car:
             # Request is not assigned.
             return False
 
@@ -233,7 +232,7 @@ class Solution:
         for car in req.vehicles:
             if car != current_car:
                 # Check if the car has a zone, and this zone is the right zone
-                if car in self.car_zone.keys() and self.car_zone[car] == req.zone:
+                if car in self.car_zone and self.car_zone[car] == req.zone:
                     # Check for overlap with the new car and the request
                     if not self.check_overlap_car_request(car, req):
                         # This car is suitable as a replacement
@@ -251,7 +250,7 @@ class Solution:
         """
         if req is None:
             req = self.req_car.random_key()
-        elif req not in self.req_car.keys():
+        elif req not in self.req_car:
             # Request is not assigned.
             return False
 
@@ -261,7 +260,7 @@ class Solution:
         for car in req.vehicles:
             if car != current_car:
                 # Check if the car has a zone, and this zone is the current zone
-                if car in self.car_zone.keys() and self.car_zone[car] == current_zone:
+                if car in self.car_zone and self.car_zone[car] == current_zone:
                     # Check for overlap with the new car and the request
                     if not self.check_overlap_car_request(car, req):
                         # This car is suitable as a replacement
@@ -270,6 +269,48 @@ class Solution:
                         return True
 
         return False
+
+    def unassign_request(self, req: Request = None) -> bool:
+        """
+        Unassign a request.
+        :param req: Request to unassign, or None for a random assigned request
+        :return: bool: Has a change been made?
+        """
+        if req is None:
+            req = self.req_car.random_key()
+        elif req not in self.req_car:
+            # Request is not assigned.
+            return False
+
+        del self.req_car[req]
+        self.greedy_assign()
+
+        return True
+
+    def unassign_car(self, car: str = None) -> bool:
+        """
+        Unassign a car from all requests.
+        :param car: Car to unassign, or None for a random assigned car
+        :return: bool: Has a change been made?
+        """
+        if car is None:
+            car = self.car_zone.random_key()
+        elif car not in self.car_zone:
+            # Car is not assigned.
+            return False
+
+        del self.car_zone[car]
+        # Tuple because we need to modify the list inplace
+        for req, _ in tuple(filter(lambda x: x[1] == car, self.req_car.items())):
+            del self.req_car[req]
+
+        # for req, req_car in tuple(self.req_car.items()):
+        #     if req_car == car:
+        #         del self.req_car[req]
+
+        self.greedy_assign()
+
+        return True
 
     # todo: add more "drastic" moves, such as just moving a car to a different region.
     # todo: add a "switch cars" move, where a request just moves to a different car.

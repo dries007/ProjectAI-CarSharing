@@ -8,13 +8,23 @@ from CarSharing.Zone import Zone
 from CarSharing.Request import Request
 
 
-def calculate_overlap(requests, debug) -> np.ndarray:
+def calculate(requests, debug) -> (np.ndarray, np.ndarray):
     """
-    Returns np array of booleans, where a True indicates an overlap between that row and col's request.
-    """
-    overlaps = np.zeros((len(requests), len(requests)), dtype=bool)
+    1th return = np array of booleans, where a True indicates an overlap between that row and col's request.
+    ---
+    Calculate the cost of one request vs another, based on the penalty2 (not accept) cost only.
+    Multiply with overlap matrix for easy summing of rows/cols
 
-    for (i, request1), (j, request2) in itertools.combinations(enumerate(requests.values()), 2):
+    A high positive sum in a row/col means the row/col's request is important. = 2nd return
+    """
+    n = len(requests)
+    overlaps = np.zeros((n, n), dtype=bool)
+    cost = np.zeros((n, n), dtype=int)
+
+    for (i, request1), (j, request2) in itertools.combinations(enumerate(requests), 2):
+        cost[i][j] = request1.penalty1 - request2.penalty1
+        cost[j][i] = request2.penalty1 - request1.penalty1
+
         if request1.real_start > request2.real_start:
             request1, request2 = request2, request1  # swap!
         # Request 1 starts before request 2 starts
@@ -25,30 +35,16 @@ def calculate_overlap(requests, debug) -> np.ndarray:
     if debug:
         import png
         with open('overlap.png', 'wb') as f:
-            w = png.Writer(len(requests), len(requests), greyscale=True, bitdepth=1)
+            w = png.Writer(n, n, greyscale=True, bitdepth=1)
             w.write(f, overlaps)
-    return overlaps
-
-
-def calculate_opportunity_cost(requests) -> np.ndarray:
-    """
-    Calculate the cost of one request vs another, based on the penalty2 (not accept) cost only.
-    Multiply with overlap matrix for easy summing of rows/cols
-
-    A high positive sum in a row/col means the row/col's request is important.
-    """
-    cost = np.zeros((len(requests), len(requests)), dtype=int)
-    for (i, request1), (j, request2) in itertools.combinations(enumerate(requests.values()), 2):
-        cost[i][j] = request1.penalty1 - request2.penalty1
-        cost[j][i] = request2.penalty1 - request1.penalty1
-    return np.sum(cost, axis=1)
+    return overlaps, np.sum(cost, axis=1)
 
 
 def parse_input(file, debug):
-    requests: Dict[str, Request] = {}
-    zones: Dict[str, Zone] = {}
     vehicles: List[str] = []
     days: int = 0
+    requests: List[Request] = []
+    zones: List[Zone] = []
 
     with open(file, newline='') as file:
         line = file.readline()
@@ -58,16 +54,14 @@ def parse_input(file, debug):
 
                 for x in range(amount):
                     data = map(str.strip, file.readline().split(";"))
-                    r = Request(*data, len(requests))
-                    requests[r.id] = r
+                    requests.append(Request(*data, len(requests)))
 
             if "+Zones:" in line:
                 amount = int(line.split(" ")[1])
 
                 for x in range(amount):
                     data = map(str.strip, file.readline().split(";"))
-                    z = Zone(*data)
-                    zones[z.id] = z
+                    zones.append(Zone(*data))
 
             if "+Vehicles:" in line:
                 amount = int(line.split(" ")[1])
@@ -80,8 +74,10 @@ def parse_input(file, debug):
 
             line = file.readline()
 
-    for request in requests.values():
-        # noinspection PyTypeChecker
-        request.zone = zones[request.zone]
+    request_map = {req.id: req for req in requests}
+    zone_map = {zone.id: zone for zone in zones}
 
-    return requests, zones, vehicles, days, calculate_overlap(requests, debug), calculate_opportunity_cost(requests)
+    for request in requests:
+        request.zone = zone_map[request.zone]
+
+    return (requests, request_map, zones, zone_map, vehicles, days, *calculate(requests, debug))

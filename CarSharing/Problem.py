@@ -12,7 +12,9 @@ from CarSharing.Zone import Zone
 
 class Problem:
     rng: random.Random
+    requests: List[Request]
     request_map: Dict[str, Request]
+    zones: List[Zone]
     zone_map: Dict[str, Zone]
     cars: List[str]
     days: int
@@ -21,19 +23,21 @@ class Problem:
     opportunity_cost: np.ndarray
     solution: Solution
 
-    def __init__(self, i, rng, requests, zones, cars, days, overlap, opportunity_cost):
+    def __init__(self, i, rng, requests, request_map, zones, zone_map, cars, days, overlap, opportunity_cost):
         self.log = logging.getLogger('JOB %d' % i)
         self.rng = rng
+
+        self.requests = requests
         # {str id -> Request}
-        self.request_map = requests
-        self.requests = tuple(requests.values())
+        self.request_map = request_map
+
+        self.zones = zones
         # {str id -> Zone}
-        self.zone_map = zones
-        self.zones = tuple(zones.values())
-        # [str id]
+        self.zone_map = zone_map
+
         self.cars = cars
-        # int
         self.days = days
+
         # np {(int, int) -> bool}: Indexes are the value indexes of item in requests map.
         self.overlap = overlap
         # np {(int) -> int}: Index is the value indexes of item in requests map. Higher means worse to leave unassigned.
@@ -68,8 +72,15 @@ class Problem:
             self.log.debug('Started actually iterating...')
 
             while True:
-                # todo: add any extra "move" functions here. They should all be runnable without arguments.
-                func = self.rng.choice((sol.move_to_neighbour, sol.neighbour_to_self, sol.change_car_in_zone))
+                # todo: add any extra "move" functions here. They should all have the signature '() -> bool'
+                # todo: implement simulated annealing. (Randomly accept even if the cost is worse.)
+                func = self.rng.choice((
+                    sol.move_to_neighbour,
+                    sol.neighbour_to_self,
+                    sol.change_car_in_zone,
+                    sol.unassign_request,
+                    sol.unassign_car,
+                ))
 
                 if func():
                     feasible, cost = sol.feasible_cost()

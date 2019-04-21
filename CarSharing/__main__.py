@@ -10,12 +10,10 @@ import time
 
 # Yey circular imports
 DEBUG = 'DEBUG' in os.environ
+logging.basicConfig(level=logging.DEBUG if DEBUG else logging.INFO, format='%(asctime)s [%(name)s %(levelname)s] %(message)s', datefmt='%H:%M:%S')
 
 from CarSharing.Problem import Problem
 from CarSharing.input_parser import parse_input
-
-
-logging.basicConfig(level=logging.DEBUG if DEBUG else logging.INFO, format='%(asctime)s [%(name)s %(levelname)s] %(message)s', datefmt='%H:%M:%S')
 
 
 parser = argparse.ArgumentParser()
@@ -41,10 +39,17 @@ def validate(input_filename: str, output_filename: str):
 
 
 def proc_main(queue: mp.Queue, i, root, rng, inp):
+    """
+    Main function for subprocess
+    :param queue: Pass values back to master
+    :param i: thread/job number
+    :param root: Root folder
+    :param rng: RNG number to be used as seed
+    :param inp: The input arguments for Problem as tuple
+    """
     proc_best_score = None
     proc_best_instance = None
     proc_best_stats = None
-
     try:
         aborted = False
         while not aborted:
@@ -78,10 +83,11 @@ def main():
     logging.info('Parsing input...')
 
     args = parser.parse_args()
+    logging.debug('Args: %r', args)
     root = os.path.dirname(os.path.abspath(args.output))
     logging.info('Working & output dir: %r', root)
     rng = random.Random(args.seed) if args.seed != 0 else random.Random()
-    inp = parse_input(args.input, DEBUG)
+    inp = parse_input(args.input, False)
 
     # For performance profiling ONLY, it can't use multiple processes.
     # This could be used if the threads parameter was 1 EXCEPT it doesn't write the file in time.
@@ -116,7 +122,7 @@ def main():
             results[0][2].save(f)
 
         import matplotlib.pyplot as plt
-        plt.title(args.input)
+        plt.title('%s Best: %d' % (args.input, results[0][0]))
         plt.xlabel('Iterations')
         plt.ylabel('Cost')
         for score, stats, problem in results:
@@ -195,10 +201,10 @@ def main():
 
         import matplotlib.pyplot as plt
 
-        plt.title(args.input)
+        plt.title('%s Best: %d' % (args.input, best))
         plt.xlabel('Iterations')
         plt.ylabel('Cost')
-        for _, filename, stats in results:
+        for score, filename, stats in results:
             plt.plot(stats)
         plt.show()
 
