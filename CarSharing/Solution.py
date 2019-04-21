@@ -1,12 +1,11 @@
 import logging
-import math
-import numpy as np
 from typing import TYPE_CHECKING, Iterable
 
-from CarSharing.RandomDict import RandomDictType
-from CarSharing.Request import Request
-from CarSharing.Zone import Zone
+import math
+import numpy as np
 
+from CarSharing.RandomDict import RandomDict
+from CarSharing.Request import Request
 
 if TYPE_CHECKING:
     from .Problem import Problem
@@ -15,49 +14,48 @@ if TYPE_CHECKING:
 class Solution:
     if TYPE_CHECKING:
         problem: Problem
-    car_zone: RandomDictType[str, Zone]
-    req_car: RandomDictType[Request, str]
+    car_zone: RandomDict
+    req_car: RandomDict
 
-    def __init__(self, problem, car_zone, req_car):
+    def __init__(self, problem, car_zone, req_car, cost=None):
         self.problem = problem
         self.car_zone = car_zone
         self.req_car = req_car
-        self.cost = None
+        self.cost = cost
 
     def __repr__(self):
         return '<Solution: Last run cost={}>'.format(self.cost)
 
     def copy(self):
-        return Solution(self.problem, self.car_zone.copy(), self.req_car.copy())
+        return Solution(self.problem, self.car_zone.copy(), self.req_car.copy(), self.cost)
 
-    def feasible_cost(self) -> (bool, int):
-        # Cost is inf if the solutions is not feasible.
-        cost = 0
+    def calculate_cost(self) -> int:
+        cost = sum(req.penalty2 for req, car in self.req_car.items() if req.zone.id in self.car_zone[car].neighbours)
 
-        for req, car in self.req_car.items():
-            # Check if a request is matched to car in it's own or neighbouring zone.
-            zone = self.car_zone[car]
-            if zone is None:  # Hard error.
-                raise RuntimeError('Request {} assigned to Car {} that is not in a zone.'.format(req, req))
-            if req.zone == zone:
-                pass
-            elif req.zone.id in zone.neighbours:
-                cost += req.penalty2
-            else:
-                logging.warning('Not feasible, request {} not in zone or neighbours ({}).'.format(req, zone))
-                return False, math.inf
-
-            # Check for overlap in car assignments (nonzero returns a list of lists of indexes)
-            for i in np.nonzero(self.problem.overlap[req.index])[0]:
-                req_i = self.problem.requests[i]
-                # If there is overlap (req is assigned and is assigned to the same car), error.
-                if req_i in self.req_car and car == self.req_car[req_i]:
-                    return False, math.inf
+        # for req, car in self.req_car.items():
+        #     # Check if a request is matched to car in it's own or neighbouring zone.
+        #     zone = self.car_zone[car]
+        #     if zone is None:  # Hard error.
+        #         raise RuntimeError('Request {} assigned to Car {} that is not in a zone.'.format(req, req))
+        #     if req.zone == zone:
+        #         pass
+        #     elif req.zone.id in zone.neighbours:
+        #         cost += req.penalty2
+        #     else:
+        #         logging.warning('Not feasible, request {} not in zone or neighbours ({}).'.format(req, zone))
+        #         return False, math.inf
+        #
+        #     # Check for overlap in car assignments (nonzero returns a list of lists of indexes)
+        #     for i in np.nonzero(self.problem.overlap[req.index])[0]:
+        #         req_i = self.problem.requests[i]
+        #         # If there is overlap (req is assigned and is assigned to the same car), error.
+        #         if req_i in self.req_car and car == self.req_car[req_i]:
+        #             return False, math.inf
 
         # Cost for unassigned requests
         cost += sum(r.penalty1 for r in self.get_unassigned(shuffle=False))
         self.cost = cost
-        return True, cost
+        return cost
 
     def save(self, file):
         logging.info('Saving a solution with score %r', self.cost)
@@ -94,7 +92,7 @@ class Solution:
         """
         Generator. Use in for loops.
         """
-        filtered = filter(lambda r: r not in self.req_car, self.problem.requests)
+        filtered = (r for r in self.problem.requests if r not in self.req_car)
         if shuffle:
             filtered = list(filtered)
             self.problem.rng.shuffle(filtered)
@@ -300,13 +298,8 @@ class Solution:
             return False
 
         del self.car_zone[car]
-        # Tuple because we need to modify the list inplace
-        for req, _ in tuple(filter(lambda x: x[1] == car, self.req_car.items())):
-            del self.req_car[req]
 
-        # for req, req_car in tuple(self.req_car.items()):
-        #     if req_car == car:
-        #         del self.req_car[req]
+        self.req_car.delete_by_value(car)
 
         self.greedy_assign()
 

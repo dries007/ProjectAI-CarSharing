@@ -2,6 +2,7 @@ import logging
 import random
 from typing import List, Dict
 
+import math
 import numpy as np
 
 from CarSharing.RandomDict import RandomDict
@@ -47,7 +48,7 @@ class Problem:
         self.solution = None
 
     def __repr__(self):
-        return 'CarSharing<solution={!r}>'.format(self.solution)
+        return '<CarSharing solution={!r}>'.format(self.solution)
 
     def save(self, file) -> None:
         if self.solution is None:
@@ -56,55 +57,63 @@ class Problem:
         self.solution.save(file)
 
     def run(self, debug) -> (int, list):
-        self.solution = Solution(self, RandomDict.from_random(self.rng), RandomDict.from_random(self.rng))
-        self.solution.greedy_assign()
-        lowest_cost = self.solution.feasible_cost()[1]
+        solution = Solution(self, RandomDict.from_random(self.rng), RandomDict.from_random(self.rng))
+        solution.greedy_assign()
+        solution.calculate_cost()
 
         if debug:
-            stats = [lowest_cost]
+            stats = [solution.cost]
 
         i = 0
-        sol = self.solution.copy()
-        last_improvement = 0
-        max_stale_rounds = 10 * len(self.requests)
+        global_best = solution
+        working_solution = solution.copy()
+        i_since_last_improvement = 0
+        stale_factor = 100 * len(self.requests)
         aborted = False
         try:
-            self.log.debug('Started actually iterating...')
-
+            # self.log.debug('Started actually iterating...')
             while True:
                 # todo: add any extra "move" functions here. They should all have the signature '() -> bool'
-                # todo: implement simulated annealing. (Randomly accept even if the cost is worse.)
+                # todo: Maybe make some moves more likely than others. The 'harsher' the change,
+                #  the more likely they will have a large impact, but also the more compute power is required.
                 func = self.rng.choice((
-                    sol.move_to_neighbour,
-                    sol.neighbour_to_self,
-                    sol.change_car_in_zone,
-                    sol.unassign_request,
-                    sol.unassign_car,
+                    working_solution.move_to_neighbour,
+                    working_solution.neighbour_to_self,
+                    working_solution.change_car_in_zone,
+                    working_solution.unassign_request,
+                    working_solution.unassign_request,  # 2x more likely
+                    working_solution.unassign_car,
+                    working_solution.unassign_car,  # 2x more likely
                 ))
 
                 if func():
-                    feasible, cost = sol.feasible_cost()
-                    if not feasible:
-                        raise RuntimeError('Made infeasible?')
-                    if cost < lowest_cost:
-                        lowest_cost = cost
-                        self.solution = sol
-                        last_improvement = i
+                    working_solution.calculate_cost()
+                    if working_solution.cost < global_best.cost:
+                        global_best = working_solution
+                        solution = working_solution
+                        i_since_last_improvement = 0
+                    # todo: implement simulated annealing, not this random 'homebrew' thing
+                    # Accept worse thing with a chance that's depending on when the last improvement was.
+                    elif self.rng.random() < 0.001*math.exp(-0.001*i_since_last_improvement):
+                        solution = working_solution
+                    # Also have some chance to reset to the global best.
+                    # Lower at the start, but it catches up at ~380, it passes 1 after ~1842
+                    elif self.rng.random() < 0.0001*math.exp(0.005*i_since_last_improvement):
+                        solution = global_best
 
-                    sol = self.solution.copy()
+                    working_solution = solution.copy()
 
                 i += 1
+                i_since_last_improvement += 1
                 if debug:
-                    stats.append(lowest_cost)
+                    stats.append(working_solution.cost)
 
-                if i - last_improvement > max_stale_rounds:
-                    self.log.debug('No improvements for %d cycles.', max_stale_rounds)
+                # Todo: Fine-tune
+                if i_since_last_improvement > stale_factor:
                     break
 
         except (KeyboardInterrupt, TimeoutError):
             aborted = True
 
-        if not debug:
-            stats = ()
-        return i, lowest_cost, stats, aborted
-
+        self.solution = global_best
+        return i, stats if debug else (), aborted

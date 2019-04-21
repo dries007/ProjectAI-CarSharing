@@ -38,6 +38,54 @@ def validate(input_filename: str, output_filename: str):
     logging.info('---------------')
 
 
+def create_stats_graph(filename, best_cost, results):
+    import matplotlib.pyplot as plt
+    plt.title('%s Best: %d' % (filename, best_cost))
+    plt.xlabel('Iterations')
+    plt.ylabel('Cost')
+
+    with open(filename + '.stats.csv', 'a') as f:
+        for score, filename, stats in results:
+            print(filename, *stats, sep=',', file=f)
+            plt.plot(stats)
+
+    plt.show()
+
+
+def single_thead_debug_run(args, rng, inp):
+    def interrupt(_, __):
+        raise KeyboardInterrupt("Time's up!")
+
+    signal.signal(signal.SIGALRM, interrupt)
+    signal.alarm(args.runtime)
+
+    start = time.perf_counter()
+    total_iterations = 0
+    results = []
+    try:
+        aborted = False
+        while not aborted:
+            start_i = time.perf_counter()
+            problem = Problem(0, random.Random(rng.random()), *inp)
+            iterations, stats, aborted = problem.run(DEBUG)
+            runtime = time.perf_counter() - start_i
+            problem.log.debug('Time: %r for %d iterations -> %d Hz Cost: %d', runtime, iterations, iterations / runtime, problem.solution.cost)
+            total_iterations += iterations
+            results.append((problem.solution.cost, stats, problem))
+    except (KeyboardInterrupt, TimeoutError):
+        pass
+
+    runtime = time.perf_counter() - start
+    logging.debug('Global runtime: %r for %d iterations -> %d Hz', runtime, total_iterations, total_iterations / runtime)
+    results.sort(key=lambda x: x[0])
+
+    with open(args.output, 'w') as f:
+        results[0][2].save(f)
+
+    results = [(cost, args.output, stats) for cost, stats, problem in results]
+    create_stats_graph(args.input, results[0][0], results)
+
+
 def proc_main(queue: mp.Queue, i, root, rng, inp):
     """
     Main function for subprocess
@@ -54,14 +102,15 @@ def proc_main(queue: mp.Queue, i, root, rng, inp):
         aborted = False
         while not aborted:
             problem = Problem(i, random.Random(rng), *inp)
+            rng += 1
             start = time.perf_counter()
-            iterations, best_score, stats, aborted = problem.run(DEBUG)
+            iterations, stats, aborted = problem.run(DEBUG)
             runtime = time.perf_counter() - start
-            problem.log.debug('Time: %r for %d iterations -> %d Hz', runtime, iterations, iterations / runtime)
+            problem.log.debug('Time: %r for %d iterations -> %d Hz Cost: %d', runtime, iterations, iterations / runtime, problem.solution.cost)
 
-            if proc_best_score is None or proc_best_score < best_score:
-                problem.log.debug('New best run')
-                proc_best_score = best_score
+            if proc_best_score is None or problem.solution.cost < proc_best_score:
+                problem.log.debug('New best run with cost: %d', problem.solution.cost)
+                proc_best_score = problem.solution.cost
                 proc_best_instance = problem
                 proc_best_stats = stats
     except (KeyboardInterrupt, TimeoutError):
@@ -92,43 +141,7 @@ def main():
     # For performance profiling ONLY, it can't use multiple processes.
     # This could be used if the threads parameter was 1 EXCEPT it doesn't write the file in time.
     if args.threads == 1 and DEBUG:
-
-        def interrupt(_, __):
-            raise KeyboardInterrupt("Time's up!")
-        signal.signal(signal.SIGALRM, interrupt)
-        signal.alarm(args.runtime)
-
-        start = time.perf_counter()
-        total_iterations = 0
-        results = []
-        try:
-            aborted = False
-            while not aborted:
-                start_i = time.perf_counter()
-                problem = Problem(0, random.Random(rng.random()), *inp)
-                iterations, score, stats, aborted = problem.run(DEBUG)
-                runtime = time.perf_counter() - start_i
-                problem.log.debug('Time: %r for %d iterations -> %d Hz', runtime, iterations, iterations / runtime)
-                total_iterations += iterations
-                results.append((score, stats, problem))
-        except (KeyboardInterrupt, TimeoutError):
-            pass
-        runtime = time.perf_counter() - start
-
-        logging.debug('Global runtime: %r for %d iterations -> %d Hz', runtime, total_iterations, total_iterations / runtime)
-        results.sort(key=lambda x: x[0])
-
-        with open(args.output, 'w') as f:
-            results[0][2].save(f)
-
-        import matplotlib.pyplot as plt
-        plt.title('%s Best: %d' % (args.input, results[0][0]))
-        plt.xlabel('Iterations')
-        plt.ylabel('Cost')
-        for score, stats, problem in results:
-            plt.plot(stats)
-        plt.show()
-
+        single_thead_debug_run(args, rng, inp)
         return
 
     # The queue is used to pass back values to the mail thread.
@@ -171,7 +184,7 @@ def main():
     results = [queue.get() for _ in procs]
 
     # Get the best result
-    best, best_filename, _ = min(results, key=lambda x: x[0])
+    best_cost, best_filename, best_stats = min(results, key=lambda x: x[0])
     # Rename the file to the proper output name
     os.replace(best_filename, args.output)
 
@@ -182,31 +195,19 @@ def main():
     logging.info('Save time: %r', save_time)
     logging.info('Global time: %r', global_time)
 
-    # Cleanup, technically not required, so not counted towards the timers.
-    if not DEBUG:
-        for result, filename, stats in results:
-            # Already moved.
-            if filename != best_filename:
-                os.unlink(filename)
+    # No longer counts for time, just some stats/plots, and cleanup :)
+    # ================================================================
 
-    # No longer counts for time, just some stats/plots
-    # ================================================
+    # Cleanup, technically not required, so not counted towards the timers.
+    for result, filename, stats in results:
+        # Already moved.
+        if filename != best_filename:
+            os.unlink(filename)
 
     validate(args.input, args.output)
 
     if DEBUG:
-        with open(args.output + '.stats.csv', 'a') as f:
-            for _, filename, stats in results:
-                print(filename, *stats, sep=',', file=f)
-
-        import matplotlib.pyplot as plt
-
-        plt.title('%s Best: %d' % (args.input, best))
-        plt.xlabel('Iterations')
-        plt.ylabel('Cost')
-        for score, filename, stats in results:
-            plt.plot(stats)
-        plt.show()
+        create_stats_graph(args.input, best_cost, results)
 
 
 if __name__ == '__main__':

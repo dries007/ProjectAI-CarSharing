@@ -1,11 +1,10 @@
 import itertools
+from typing import List
 
 import numpy as np
 
-from typing import Dict, List
-
-from CarSharing.Zone import Zone
 from CarSharing.Request import Request
+from CarSharing.Zone import Zone
 
 
 def calculate(requests, debug) -> (np.ndarray, np.ndarray):

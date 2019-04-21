@@ -7,9 +7,8 @@
     Added by Dries: + Ability to use preset rng for deterministic random.
                     + Made this class more like a real dict, with __contains__, keys, values, items, ...
 """
-from collections import MutableMapping
 import random
-import typing
+from collections import MutableMapping
 
 __version__ = '0.2.0'
 
@@ -41,12 +40,9 @@ class RandomDict(MutableMapping):
             self._last_index += 1
             i = self._last_index
             self._values.append((key, val))
-        self._keys[key] = i
+            self._keys[key] = i
 
     def __delitem__(self, key):
-        if key not in self._keys:
-            raise KeyError
-
         # index of item to delete is i
         i = self._keys[key]
         # last item in values array is
@@ -64,12 +60,13 @@ class RandomDict(MutableMapping):
         # remove deleted key
         del self._keys[key]
 
-    def __getitem__(self, key):
-        if key not in self._keys:
-            raise KeyError
+    def delete_by_value(self, needle):
+        # Must be a list, not a generator because we can't modify the list we are looping over.
+        for key in [key for key, value in self._values if value == needle]:
+            del self[key]
 
-        i = self._keys[key]
-        return self._values[i][1]
+    def __getitem__(self, key):
+        return self._values[self._keys[key]][1]
 
     def __iter__(self):
         return iter(self._keys)
@@ -115,6 +112,5 @@ class RandomDict(MutableMapping):
         instance.rng = rng
         return instance
 
-
-class RandomDictType(RandomDict, typing.MutableMapping[typing.KT, typing.VT], extra=RandomDict):
-    __slots__ = ()
+# class RandomDictType(RandomDict, typing.MutableMapping[typing.KT, typing.VT], extra=RandomDict):
+#     __slots__ = ()

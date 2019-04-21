@@ -41,8 +41,13 @@ This is not deterministic due to the random picking of a match in 1.i.a and 1.ii
 
 Provided via Toledo:
 
-+ 100_5_14_25.csv: 10015
-+ 100_5_19_25.csv: 6700
-+ 210_5_33_25.csv: 14325
-+ 210_5_44_25.csv: 5890
-+ 360_5_71_25.csv: 12955
+Results from 300s on 2 threads
+
+ file        | Toledo | 21 apr 
+-------------|--------|--------
+ 100_5_14_25 |  10015 | 10110
+ 100_5_19_25 |   6700 |  6430
+ 210_5_33_25 |  14325 | 12450
+ 210_5_44_25 |   5890 |  6190
+ 360_5_71_25 |  12955 | 10080
+
