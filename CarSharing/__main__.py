@@ -10,6 +10,7 @@ import time
 
 # Yey circular imports
 DEBUG = 'DEBUG' in os.environ
+NO_SHOW = 'NO_SHOW' in os.environ
 logging.basicConfig(level=logging.DEBUG if DEBUG else logging.INFO, format='%(asctime)s [%(name)s %(levelname)s] %(message)s', datefmt='%H:%M:%S')
 
 from CarSharing.Problem import Problem
@@ -39,17 +40,25 @@ def validate(input_filename: str, output_filename: str):
 
 
 def create_stats_graph(filename, best_cost, results):
+    import matplotlib as mpl
+    mpl.use('Agg')
     import matplotlib.pyplot as plt
+    plt.figure(figsize=(16, 9), dpi=100, frameon=False)
     plt.title('%s Best: %d' % (filename, best_cost))
     plt.xlabel('Iterations')
     plt.ylabel('Cost')
 
     with open(filename + '.stats.csv', 'a') as f:
-        for score, filename, stats in results:
-            print(filename, *stats, sep=',', file=f)
+        for score, name, stats in results:
+            print(name, *stats, sep=',', file=f)
             plt.plot(stats)
 
-    plt.show()
+    plt.tight_layout()
+    plt.autoscale()
+
+    plt.savefig('%s.png' % filename)
+    if not NO_SHOW:
+        plt.show()
 
 
 def single_thead_debug_run(args, rng, inp):
@@ -160,7 +169,7 @@ def main():
         p.start()
 
     # Keep some time to save the best result. Saving should be comparable to the starting up.
-    sleep_time = args.runtime - 2 * startup_time
+    sleep_time = args.runtime - 3 * startup_time
     logging.info('Target compute time: %r', sleep_time)
     # Sleep until workers need to die.
     if sleep_time < 0:

@@ -96,7 +96,7 @@ class Problem:
 
                     # Generate random neighbour of solution
                     if func():
-                        # Calculate energie difference
+                        # Calculate energy difference
                         working_solution.calculate_cost()
                         delta_e = working_solution.cost - global_best.cost
 
@@ -104,12 +104,10 @@ class Problem:
                             # This solution is better, save it
                             global_best = working_solution
                             solution = working_solution
-
-                        else:
-                            # New solution is worse, accept it anyway with a probability
-                            if math.exp(-delta_e / temp) > self.rng.random():
-                                global_best = working_solution
-                                solution = working_solution
+                        # New solution is worse, accept it anyway with a probability
+                        elif math.exp(-delta_e / temp) > self.rng.random():
+                            global_best = working_solution
+                            solution = working_solution
 
                     working_solution = solution.copy()
 
