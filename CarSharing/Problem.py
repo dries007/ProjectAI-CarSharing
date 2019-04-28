@@ -1,14 +1,28 @@
 import logging
 import random
-from typing import List, Dict
-
 import math
+import os
+from typing import List, Dict
 import numpy as np
 
 from CarSharing.RandomDict import RandomDict
 from CarSharing.Request import Request
 from CarSharing.Solution import Solution
 from CarSharing.Zone import Zone
+
+
+def get_from_env_or_default(key: str, default, type_: type = int):
+    return default if key not in os.environ else type_(os.environ[key])
+
+
+# Simulated Annealing parameters
+t_max = get_from_env_or_default('SA_TMAX', 1000)
+t_min = get_from_env_or_default('SA_TMIN', 10)
+iterations = get_from_env_or_default('SA_ITERATIONS', 1000)
+alpha = get_from_env_or_default('SA_ALPHA', 0.65, type_=float)
+
+logging.info('Simulated Annealing parameters: T = %d -> %d with α = %g per %d iterations: %d total iterations.',
+             t_max, t_min, alpha, iterations, math.ceil(math.log(t_min / t_max, alpha)) * iterations)
 
 
 class Problem:
@@ -21,10 +35,11 @@ class Problem:
     days: int
 
     overlap: np.ndarray
-    opportunity_cost: np.ndarray
+    # opportunity_cost: np.ndarray
     solution: Solution
 
-    def __init__(self, i, rng, requests, request_map, zones, zone_map, cars, days, overlap, opportunity_cost):
+    # def __init__(self, i, rng, requests, request_map, zones, zone_map, cars, days, overlap, opportunity_cost):
+    def __init__(self, i, rng, requests, request_map, zones, zone_map, cars, days, overlap):
         self.log = logging.getLogger('JOB %d' % i)
         self.rng = rng
 
@@ -42,7 +57,7 @@ class Problem:
         # np {(int, int) -> bool}: Indexes are the value indexes of item in requests map.
         self.overlap = overlap
         # np {(int) -> int}: Index is the value indexes of item in requests map. Higher means worse to leave unassigned.
-        self.opportunity_cost = opportunity_cost
+        # self.opportunity_cost = opportunity_cost
 
         # Solution object, holds assignments etc
         self.solution = None
@@ -68,22 +83,13 @@ class Problem:
         global_best = solution
         working_solution = solution.copy()
 
-        # Simulated Annealing parameters
-        t_max = 1000            # Max temp
-        t_min = 10              # Min temp
-        iterations = 1000       # Iterations for equilibrium
-        alpha = 0.65            # Cooling factor
-
         temp = t_max
 
         aborted = False
         try:
             # Simulated Annealing
-            while temp >= t_min:                    # Iterate until stopcondition is reached
+            while temp >= t_min:                    # Iterate until stop-condition is reached
                 for x in range(iterations):         # Iterate until equilibrium is reached
-                    # todo: add any extra "move" functions here. They should all have the signature '() -> bool'
-                    # todo: Maybe make some moves more likely than others. The 'harsher' the change,
-                    #  the more likely they will have a large impact, but also the more compute power is required.
                     func = self.rng.choice((
                         working_solution.move_to_neighbour,
                         working_solution.neighbour_to_self,

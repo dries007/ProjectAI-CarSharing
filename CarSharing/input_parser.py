@@ -18,11 +18,11 @@ def calculate(requests, debug) -> (np.ndarray, np.ndarray):
     """
     n = len(requests)
     overlaps = np.zeros((n, n), dtype=bool)
-    cost = np.zeros((n, n), dtype=int)
+    # cost = np.zeros((n, n), dtype=int)
 
     for (i, request1), (j, request2) in itertools.combinations(enumerate(requests), 2):
-        cost[i][j] = request1.penalty1 - request2.penalty1
-        cost[j][i] = request2.penalty1 - request1.penalty1
+        # cost[i][j] = request1.penalty1 - request2.penalty1
+        # cost[j][i] = request2.penalty1 - request1.penalty1
 
         if request1.real_start > request2.real_start:
             request1, request2 = request2, request1  # swap!
@@ -36,7 +36,8 @@ def calculate(requests, debug) -> (np.ndarray, np.ndarray):
         with open('overlap.png', 'wb') as f:
             w = png.Writer(n, n, greyscale=True, bitdepth=1)
             w.write(f, overlaps)
-    return overlaps, np.sum(cost, axis=1)
+    # return overlaps, np.sum(cost, axis=1)
+    return overlaps
 
 
 def parse_input(file, debug):
@@ -79,4 +80,5 @@ def parse_input(file, debug):
     for request in requests:
         request.zone = zone_map[request.zone]
 
-    return (requests, request_map, zones, zone_map, vehicles, days, *calculate(requests, debug))
+    # return (requests, request_map, zones, zone_map, vehicles, days, *calculate(requests, debug))
+    return requests, request_map, zones, zone_map, vehicles, days, calculate(requests, debug)
