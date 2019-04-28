@@ -304,6 +304,3 @@ class Solution:
         self.greedy_assign()
 
         return True
-
-    # todo: add more "drastic" moves, such as just moving a car to a different region.
-    # todo: add a "switch cars" move, where a request just moves to a different car.

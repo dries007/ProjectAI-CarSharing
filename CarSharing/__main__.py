@@ -13,6 +13,7 @@ DEBUG = 'DEBUG' in os.environ
 NO_SHOW = 'NO_SHOW' in os.environ
 logging.basicConfig(level=logging.DEBUG if DEBUG else logging.INFO, format='%(asctime)s [%(name)s %(levelname)s] %(message)s', datefmt='%H:%M:%S')
 
+
 from CarSharing.Problem import Problem
 from CarSharing.input_parser import parse_input
 
@@ -40,8 +41,9 @@ def validate(input_filename: str, output_filename: str):
 
 
 def create_stats_graph(filename, best_cost, results):
-    import matplotlib as mpl
-    mpl.use('Agg')
+    if NO_SHOW:
+        import matplotlib as mpl
+        mpl.use('Agg')
     import matplotlib.pyplot as plt
     plt.figure(figsize=(16, 9), dpi=100, frameon=False)
     plt.title('%s Best: %d' % (filename, best_cost))
@@ -92,7 +94,7 @@ def single_thead_debug_run(args, rng, inp):
         results[0][2].save(f)
 
     results = [(cost, args.output, stats) for cost, stats, problem in results]
-    create_stats_graph(args.input, results[0][0], results)
+    create_stats_graph(args.output, results[0][0], results)
 
 
 def proc_main(queue: mp.Queue, i, root, rng, inp):
