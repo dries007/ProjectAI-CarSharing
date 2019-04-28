@@ -21,10 +21,11 @@ class Problem:
     days: int
 
     overlap: np.ndarray
-    opportunity_cost: np.ndarray
+    # opportunity_cost: np.ndarray
     solution: Solution
 
-    def __init__(self, i, rng, requests, request_map, zones, zone_map, cars, days, overlap, opportunity_cost):
+    # def __init__(self, i, rng, requests, request_map, zones, zone_map, cars, days, overlap, opportunity_cost):
+    def __init__(self, i, rng, requests, request_map, zones, zone_map, cars, days, overlap):
         self.log = logging.getLogger('JOB %d' % i)
         self.rng = rng
 
@@ -42,7 +43,7 @@ class Problem:
         # np {(int, int) -> bool}: Indexes are the value indexes of item in requests map.
         self.overlap = overlap
         # np {(int) -> int}: Index is the value indexes of item in requests map. Higher means worse to leave unassigned.
-        self.opportunity_cost = opportunity_cost
+        # self.opportunity_cost = opportunity_cost
 
         # Solution object, holds assignments etc
         self.solution = None
