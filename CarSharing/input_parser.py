@@ -11,7 +11,7 @@ def calculate(requests, debug) -> (np.ndarray, np.ndarray):
     """
     1th return = np array of booleans, where a True indicates an overlap between that row and col's request.
     ---
-    Calculate the cost of one request vs another, based on the penalty2 (not accept) cost only.
+    Calculate the cost of one request vs another, based on the penalty1 (not accept) cost only.
     Multiply with overlap matrix for easy summing of rows/cols
 
     A high positive sum in a row/col means the row/col's request is important. = 2nd return

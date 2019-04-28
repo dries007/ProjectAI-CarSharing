@@ -44,6 +44,25 @@
     \end{equation}
 
 \section{Our approach}
+    \subsection{Data structures and representation}
+        \subsubsection{Request, Zone and Car}
+            Requests and zones are parsed into objects of their respective class containing all fields necessary to store the input data in basic types like integers, strings and lists.
+            Cars do not have a custom object, they are represented with a simple string on the request object.
+
+            After parsing the input data, all request and zone objects are stored in 2 lists, and in a dictionary for fast lookup by id. 
+        
+        \subsection{Solution}
+            A solution is represented by a Solution object. This object contains a reference to the lists with parsed input data, and 2 dictionary's.
+            These dictionary's represent the relationship between a car and zone, and between a request and a car.
+            The cost function can be calculated based on the car\textunderscore zone and req\textunderscore car dictionary's.
+
+        \subsection{Auxiliary data structures}
+            To speed up the calculation process, we created some extra data structures with pre-calculated data.
+
+            The first structure is the overlap matrix. This 2D-matrix represents the overlapping of 2 requests, this allows for a fast feasibility check because
+            the slow overlap checking loop is pre-calculated.
+
+            
 
 \section{Results}
 
