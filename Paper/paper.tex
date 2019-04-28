@@ -5,6 +5,9 @@
 \graphicspath{{img/}}
 \usepackage{authblk}
 
+\setlength\parindent{0pt}                   % Fix indentation on new line
+\setlength\parskip{\medskipamount}
+
 \renewcommand\Authand{, }
 
 \begin{document}
@@ -17,6 +20,28 @@
 \maketitle
 
 \section{Problem description}
+    The Cambio car sharing project lets you make a reservation for a car at a specific time in a specific zone.
+    The goal of this optimization problem is to find the most optimal location for each car, in order to assign as many reservations as possible
+    in one city.
+    
+    The city has been divided into zones, every car has a vehicle type and each reservation consists of:
+    \begin{itemize}
+        \item A required zone;
+        \item A start and end date and time;
+        \item A type of vehicle.
+    \end{itemize} 
+
+    This means a request can only be assigned to the required zone, or a neighboring zone. Only cars of the right type can be used for a reservation.
+    And of-course a reservation can only be assigned if a car is free for the entire duration of the reservation.
+
+    The goal is to assign each car to a zone, and assign each reservation to a car. No limit has been specified for the amount of cars assigned to one zone.
+
+    The cost of this problem has to be as low as possible, and can be calculated as shown in formula~\ref{f:cost} where $P_1$ and $P_2$ are penalty factors.
+
+    \begin{equation}
+        \label{f:cost}
+        cost = P_1 * \#Not assigned + P_2 * \#Assigned to neighbor
+    \end{equation}
 
 \section{Our approach}
 
