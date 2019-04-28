@@ -62,7 +62,32 @@
             The first structure is the overlap matrix. This 2D-matrix represents the overlapping of 2 requests, this allows for a fast feasibility check because
             the slow overlap checking loop is pre-calculated.
 
+
+    \subsection{Algorithm}
+        Our local search algorithm is composed of 3 major parts.
+        \subsubsection{Greedy assign}
+            The greedy assign function loops over the currently unassigned requests, and try's to find a car already assigned to the right zone or a neighboring zone.
+            If a suitable car is found, the request will be assigned. If no suitable car is available, the function will take a new car and assign it to the required zone and request.
+
+            This function is used to create our initial solution, and guaranties a feasible solution.
+            After each of our local moves, this function in called to try and fill all gaps and assign as many requests as possible.
+
+        \subsubsection{Local moves}
+            Our algorithm is based around 5 small local changes:
+            \begin{itemize}
+                \item Move a request from the 'optimal' zone to one of its neighbors
+                \item Move a request assigned to a neighbor zone to the 'optimal' zone.
+                \item Swap the car assigned to a request with another car in the same zone.
+                \item Unassign 1 car from all its requests.
+                \item Unassign 1 request.
+            \end{itemize}
+
+        \subsection{Meta heuristic}
+            To control all small local changes, we implemented Simulated Annealing. 
+            This allows our algorithm to find a different solution in the neighborhood of the working solution. 
+            This new solution will be accepted if the cost is lower, and accepted or rejected with a random probability based on the simulated annealing factors.
             
+            When the stop-condition for our algorithm is reached, a new random initial solution will be generated and start again.
 
 \section{Results}
 
