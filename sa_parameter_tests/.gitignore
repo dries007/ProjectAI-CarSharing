@@ -1,0 +1,8 @@
+*.csv.stats.csv
+*.log
+validator.jar
+100_5_14_25.csv
+100_5_19_25.csv
+210_5_33_25.csv
+210_5_44_25.csv
+360_5_71_25.csv
