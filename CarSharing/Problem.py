@@ -18,7 +18,7 @@ def get_from_env_or_default(key: str, default, type_: type = int):
 # Simulated Annealing parameters
 t_max = get_from_env_or_default('SA_TMAX', 1000)
 t_min = get_from_env_or_default('SA_TMIN', 10)
-iterations = get_from_env_or_default('SA_ITERATIONS', 1000)
+iterations = get_from_env_or_default('SA_ITERATIONS', 5000)
 alpha = get_from_env_or_default('SA_ALPHA', 0.65, type_=float)
 
 logging.info('Simulated Annealing parameters: T = %d -> %d with α = %g per %d iterations: %d total iterations.',
