@@ -171,7 +171,7 @@ def main():
         p.start()
 
     # Keep some time to save the best result. Saving should be comparable to the starting up.
-    sleep_time = args.runtime - 3 * startup_time
+    sleep_time = args.runtime - 4 * startup_time
     logging.info('Target compute time: %r', sleep_time)
     # Sleep until workers need to die.
     if sleep_time < 0:

@@ -1,14 +1,26 @@
-\documentclass[11pt]{article}
+\documentclass[11pt,a4paper]{article}
 
 \usepackage{graphicx}
 \usepackage[english]{babel}
 \graphicspath{{img/}}
 \usepackage{authblk}
+\usepackage{hyperref}
+\hypersetup{
+    colorlinks=true,       % false: boxed links, true: colored links
+    linkcolor=black,       % color of internal links (change box color with linkbordercolor)
+    citecolor=green,       % color of links to bibliography
+    filecolor=magenta,     % color of file links
+    urlcolor=blue          % color of external links
+}
 
 \setlength\parindent{0pt}                   % Fix indentation on new line
 \setlength\parskip{\medskipamount}
 
 \renewcommand\Authand{, }
+
+% The sweat relieve of a readable font.
+\renewcommand{\familydefault}{\sfdefault}
+\usepackage[T1]{fontenc}
 
 \begin{document}
 
@@ -19,62 +31,84 @@
 \date{}
 \maketitle
 
-\section{Problem description}
+\section{Problem Description}
     The Cambio car sharing project lets you make a reservation for a car at a specific time in a specific zone.
     The goal of this optimization problem is to find the most optimal location for each car, in order to assign as many reservations as possible
     in one city.
     
     The city has been divided into zones, every car has a vehicle type and each reservation consists of:
-    \begin{itemize}
+    \begin{itemize} \itemsep-0.5em
         \item A required zone;
         \item A start and end date and time;
         \item A type of vehicle.
     \end{itemize} 
 
-    This means a request can only be assigned to the required zone, or a neighboring zone. Only cars of the right type can be used for a reservation.
+    This means a request can only be assigned to the required zone, or a neighboring zone.
+    Only cars of the right type can be used for a reservation.
     And of-course a reservation can only be assigned if a car is free for the entire duration of the reservation.
 
-    The goal is to assign each car to a zone, and assign each reservation to a car. No limit has been specified for the amount of cars assigned to one zone.
+    The goal is to assign each car to a zone, and assign each reservation to a car.
+    No limit has been specified for the amount of cars assigned to one zone.
 
-    The cost of this problem has to be as low as possible, and can be calculated as shown in formula~\ref{f:cost} where $P_1$ and $P_2$ are penalty factors.
+    The cost of this problem has to be as low as possible, and can be calculated by taking the sum of
+    1) the $P$ factor if the request has not been assigned;
+    and 2) the $Q$ factor if the request has been assigned to a neighbour
+    as shown in formula~\ref{f:cost}.
+    Every request has a different $P$ and $Q$ factor.
 
-    \begin{equation}
-        \label{f:cost}
-        cost = P_1 * \#Not assigned + P_2 * \#Assigned to neighbor
+    \begin{equation}\label{f:cost}
+        cost = \sum_{r}^{\#Requests} \left( P_r \cdot r_1 + Q_r \cdot r_2 \right)
     \end{equation}
 
-\section{Our approach}
-    \subsection{Data structures and representation}
+    \begin{itemize} \itemsep-0.5em
+        \item $r_1 = 1$ if $r$ is not assigned else $0$;
+        \item $r_2 = 1$ if $r$ is assigned to a neighbour else $0$.
+    \end{itemize}
+
+\section{Our Solver}
+
+    We wrote our solver in Python 3, and will be using it's terminology in this paper.
+
+    \subsection{Data Structures and Representation}
+
+        This is an overview of the data structures we use.
+
         \subsubsection{Request, Zone and Car}
-            Requests and zones are parsed into objects of their respective class containing all fields necessary to store the input data in basic types like integers, strings and lists.
-            Cars do not have a custom object, they are represented with a simple string on the request object.
+            Requests and zones are parsed into objects of their respective class containing all fields necessary to store the input data in basic types.
+            Cars do not have a custom object, they are represented with a simple string.
 
-            After parsing the input data, all request and zone objects are stored in 2 lists, and in a dictionary for fast lookup by id. 
+            After parsing the input data, all request and zone objects are stored in 2 lists, and in a dictionary each for fast lookup by id.
+            These objects are all considered immutable so they never have to be copied.
         
-        \subsection{Solution}
-            A solution is represented by a Solution object. This object contains a reference to the lists with parsed input data, and 2 dictionary's.
-            These dictionary's represent the relationship between a car and zone, and between a request and a car.
-            The cost function can be calculated based on the car\textunderscore zone and req\textunderscore car dictionary's.
+        \subsubsection{Solution}
+            A particular solution is represented by a Solution object.
+            This object contains a reference to the parsed input data, and 2 dictionaries.
+            These dictionaries represent the relationship between a car and zone, and between a request and a car.
+            The cost function can be calculated based on the \texttt{car\_zone} and \texttt{req\_car} dictionaries.
 
-        \subsection{Auxiliary data structures}
-            To speed up the calculation process, we created some extra data structures with pre-calculated data.
+            This is the only object that must be copied for every local move.
+            This saves on memory churn and thus CPU time.
 
-            The first structure is the overlap matrix. This 2D-matrix represents the overlapping of 2 requests, this allows for a fast feasibility check because
-            the slow overlap checking loop is pre-calculated.
+        \subsubsection{Overlap Matrix}
+            To speed up some local steps, we pre-calculate a matrix of overlapping requests.
+            This 2D boolean matrix allows for a fast feasibility check because the slow overlap checking loop is eliminated.
 
 
     \subsection{Algorithm}
+
         Our local search algorithm is composed of 3 major parts.
-        \subsubsection{Greedy assign}
-            The greedy assign function loops over the currently unassigned requests, and try's to find a car already assigned to the right zone or a neighboring zone.
-            If a suitable car is found, the request will be assigned. If no suitable car is available, the function will take a new car and assign it to the required zone and request.
+
+        \subsubsection{Greedy Assign}
+            The greedy assign function loops over the currently unassigned requests, and tries to find a car already assigned to the right zone or a neighboring zone.
+            If a suitable car is found, the request will be assigned.
+            If no suitable car is available, the function will take a new car and assign it to the required zone and request.
 
             This function is used to create our initial solution, and guaranties a feasible solution.
             After each of our local moves, this function in called to try and fill all gaps and assign as many requests as possible.
 
-        \subsubsection{Local moves}
+        \subsubsection{Local Moves}
             Our algorithm is based around 5 small local changes:
-            \begin{itemize}
+            \begin{itemize} \itemsep-0.5em
                 \item Move a request from the 'optimal' zone to one of its neighbors
                 \item Move a request assigned to a neighbor zone to the 'optimal' zone.
                 \item Swap the car assigned to a request with another car in the same zone.
@@ -82,12 +116,30 @@
                 \item Unassign 1 request.
             \end{itemize}
 
-        \subsection{Meta heuristic}
-            To control all small local changes, we implemented Simulated Annealing. 
-            This allows our algorithm to find a different solution in the neighborhood of the working solution. 
+        \subsubsection{Metaheuristic}\label{subsec:metaheuristic}
+            To control all small local changes, we implemented simulated annealing.
+            This allows our algorithm to find a different solution in the neighborhood of the working solution.
             This new solution will be accepted if the cost is lower, and accepted or rejected with a random probability based on the simulated annealing factors.
             
             When the stop-condition for our algorithm is reached, a new random initial solution will be generated and start again.
+
+            The data we used to justify our simulated annealing parameters can be found in the attached archive, or online on \href{https://cambio.dries007.net/}{cambio.dries007.net}.
+
+    \subsection{Performance}
+    Our solver manages to perform in the order of 12000 local moves per second (or 12kHz) with an input of 100 requests on an Intel i5-4670 CPU running at 4GHz.
+    For the 210 requests example file we reach 10kHz. With 360 requests the performance is 5KHz.
+
+    This performance is reached thanks careful analysis of the code and runtime profiling.
+    Removal of unused sections of the algorithm such as the feasibility check (since we never make a solution non feasible), made a very considerable (up to 50\%) difference.
+    List creations have been replaced with generators wherever possible, ==TODO==
+
+    With our simulated annealing parameters as mentioned in~\ref{subsec:metaheuristic}, the time for a single iteration of our algorithm remains low (order of seconds).
+    This means that we can run many iterations in the given time limit (5 minutes), thus creating many opportunities to find a good solution, even if our algorithm cannot reach all of the solution space.
+
+    \subsection{Determinism}
+    Despite our best efforts our solver is not deterministic, i.e., the same seed input does not result in the same output.
+    We are not sure why that is the case, but decided it was not worth spending a lot of time on researching.
+
 
 \section{Results}
 
